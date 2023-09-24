@@ -5,23 +5,51 @@ import com.teriteri.backend.pojo.CustomResponse;
 import com.teriteri.backend.pojo.MainCategory;
 import com.teriteri.backend.pojo.SubCategory;
 import com.teriteri.backend.service.category.MainCategoryService;
+import com.teriteri.backend.utils.RedisUtil;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
 import java.util.*;
 
+@Slf4j
 @Service
 public class MainCategoryServiceImpl implements MainCategoryService {
 
     @Autowired
     private MainCategoryMapper mainCategoryMapper;
 
+    @Autowired
+    private RedisUtil redisUtil;
+
+    /**
+     * 获取全部分区（含子分区）数据
+     * @return CustomResponse对象
+     */
     @Override
     public CustomResponse getAll() {
-        List<Map<String, Object>> resultMapList = mainCategoryMapper.getAllWithSubCategories();
+        CustomResponse customResponse = new CustomResponse();
+        List<MainCategory> sortedCategories = new ArrayList<>();
+
+        // 尝试从redis中获取数据
+        try {
+            sortedCategories = redisUtil.getAllList("categoryList", MainCategory.class);
+            if (sortedCategories.size() != 0) {
+                customResponse.setData(sortedCategories);
+                return customResponse;
+            }
+            log.warn("redis中获取不到分区数据");
+        } catch (Exception e) {
+            log.error("获取redis分区数据失败");
+        }
+
+        List<Map<String, Object>> allCatMapList = mainCategoryMapper.getAllWithSubCategories();
+//        System.out.println(resultMapList);    // [{sc_name=动物综合, mc_name=动物圈, sc_id=animal_composite, mc_id=animal}]
+
+        // 开一个临时整合map
         Map<String, MainCategory> mainCategoryMap = new HashMap<>();
 
-        for (Map<String, Object> resultMap : resultMapList) {
+        for (Map<String, Object> resultMap : allCatMapList) {
             String mcId = (String) resultMap.get("mc_id");
             String mcName = (String) resultMap.get("mc_name");
             String scId = (String) resultMap.get("sc_id");
@@ -53,19 +81,18 @@ public class MainCategoryServiceImpl implements MainCategoryService {
                 "information", "food", "life", "car", "fashion",
                 "sports", "animal", "virtual");
 
-        List<MainCategory> sortedMainCategories = new ArrayList<>();
         for (String mcId : sortOrder) {
             if (mainCategoryMap.containsKey(mcId)) {
-                sortedMainCategories.add(mainCategoryMap.get(mcId));
+                sortedCategories.add(mainCategoryMap.get(mcId));
             }
         }
-
-        // 封装到返回对象
-        CustomResponse customResponse = new CustomResponse();
-//        customResponse.setCode(200);
-//        customResponse.setMessage("OK");
-        customResponse.setData(sortedMainCategories);
-
+        // 将分类添加到redis缓存中
+        try {
+            redisUtil.setAllList("categoryList", sortedCategories);
+        } catch (Exception e) {
+            log.error("存储redis分类列表失败");
+        }
+        customResponse.setData(sortedCategories);
         return customResponse;
     }
 }
