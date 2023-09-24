@@ -11,6 +11,10 @@ public class MainCategoryController {
     @Autowired
     private MainCategoryService mainCategoryService;
 
+    /**
+     * 获取全部分区接口
+     * @return CustomResponse对象
+     */
     @GetMapping("/mc/getall")
     public CustomResponse getAll() {
         return mainCategoryService.getAll();
