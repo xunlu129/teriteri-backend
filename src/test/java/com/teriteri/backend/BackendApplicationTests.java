@@ -1,9 +1,6 @@
 package com.teriteri.backend;
 
 import com.alibaba.druid.pool.DruidDataSource;
-import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.teriteri.backend.pojo.User;
 import com.teriteri.backend.utils.RedisUtil;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -13,7 +10,6 @@ import org.springframework.data.redis.core.RedisTemplate;
 import javax.sql.DataSource;
 import java.sql.Connection;
 import java.sql.SQLException;
-import java.util.Date;
 
 @SpringBootTest
 class ApplicationTests {

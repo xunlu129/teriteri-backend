@@ -1,18 +1,20 @@
 package com.teriteri.backend.pojo;
 
-import com.baomidou.mybatisplus.annotation.TableId;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
 import java.util.List;
+import java.util.Map;
 
+/**
+ * 分区包装类
+ */
 @Data
 @AllArgsConstructor
 @NoArgsConstructor
-public class MainCategory {
-    @TableId("mc_id")
+public class CategoryWrapper {
     private String mcId;
     private String mcName;
-    private List<SubCategory> scList; // 关联的附分类对象列表
+    private List<Map<String, Object>> scList;
 }
