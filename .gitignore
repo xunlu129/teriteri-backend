@@ -34,3 +34,8 @@ build/
 
 ### config ###
 *.yml
+
+### upload-dir ###
+/public/chunk/
+/public/img/cover/
+/public/video/
