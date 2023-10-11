@@ -1,5 +1,6 @@
 package com.teriteri.backend.controller;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
 import com.teriteri.backend.pojo.CustomResponse;
 import com.teriteri.backend.pojo.VideoUploadInfo;
 import com.teriteri.backend.service.video.VideoService;
@@ -44,7 +45,7 @@ public class VideoController {
                                    @RequestParam("mcid") String mcid,
                                    @RequestParam("scid") String scid,
                                    @RequestParam("tags") String tags,
-                                   @RequestParam("descr") String descr) {
+                                   @RequestParam("descr") String descr) throws JsonProcessingException {
         VideoUploadInfo videoUploadInfo = new VideoUploadInfo(null, hash, title, type, auth, mcid, scid, tags, descr, null);
         return videoService.addVideo(cover, videoUploadInfo);
     }

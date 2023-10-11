@@ -1,7 +1,7 @@
 package com.teriteri.backend.config.filter;
 
 import com.teriteri.backend.pojo.User;
-import com.teriteri.backend.service.impl.UserDetailsImpl;
+import com.teriteri.backend.service.impl.user.UserDetailsImpl;
 import com.teriteri.backend.utils.JwtUtil;
 import com.teriteri.backend.utils.RedisUtil;
 import lombok.extern.slf4j.Slf4j;

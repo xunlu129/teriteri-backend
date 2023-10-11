@@ -64,7 +64,7 @@ public class SecurityConfig {
                     throw new BadCredentialsException("访问拒绝：用户名或密码错误！");
                 }
 
-                log.info("访问成功：" + loginUser);
+//                log.info("访问成功：" + loginUser);
                 return new UsernamePasswordAuthenticationToken(loginUser, password, loginUser.getAuthorities());
             }
 

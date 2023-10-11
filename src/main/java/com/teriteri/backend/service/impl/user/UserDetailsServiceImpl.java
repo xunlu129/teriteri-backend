@@ -1,4 +1,4 @@
-package com.teriteri.backend.service.impl;
+package com.teriteri.backend.service.impl.user;
 
 import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
 import com.teriteri.backend.mapper.UserMapper;
