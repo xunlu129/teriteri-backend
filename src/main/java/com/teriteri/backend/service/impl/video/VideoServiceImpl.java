@@ -1,17 +1,19 @@
 package com.teriteri.backend.service.impl.video;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.teriteri.backend.mapper.VideoMapper;
-import com.teriteri.backend.pojo.CustomResponse;
-import com.teriteri.backend.pojo.User;
-import com.teriteri.backend.pojo.Video;
-import com.teriteri.backend.pojo.VideoUploadInfo;
-import com.teriteri.backend.service.impl.UserDetailsImpl;
+import com.teriteri.backend.mapper.VideoStatsMapper;
+import com.teriteri.backend.pojo.*;
+import com.teriteri.backend.service.impl.user.UserDetailsImpl;
+import com.teriteri.backend.service.utils.CurrentUser;
 import com.teriteri.backend.service.video.VideoService;
 import com.teriteri.backend.utils.RedisUtil;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.io.FileUtils;
+import org.springframework.amqp.rabbit.core.RabbitTemplate;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.scheduling.annotation.Async;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
@@ -30,16 +32,33 @@ import java.util.stream.Collectors;
 @Service
 public class VideoServiceImpl implements VideoService {
 
-    private final String COVER_DIRECTORY = "public/img/cover/";   // 投稿封面存储目录
-    private final String VIDEO_DIRECTORY = "public/video/";   // 投稿视频存储目录
-    private final String CHUNK_DIRECTORY = "public/chunk/";   // 分片存储目录
+    @Value("${directory.cover}")
+    private String COVER_DIRECTORY;   // 投稿封面存储目录
+    @Value("${directory.video}")
+    private String VIDEO_DIRECTORY;   // 投稿视频存储目录
+    @Value("${directory.chunk}")
+    private String CHUNK_DIRECTORY;   // 分片存储目录
 
     @Autowired
     private VideoMapper videoMapper;
 
     @Autowired
+    private VideoStatsMapper videoStatsMapper;
+
+    @Autowired
     private RedisUtil redisUtil;
 
+    @Autowired
+    private CurrentUser currentUser;
+
+    @Autowired
+    private RabbitTemplate rabbitTemplate;
+
+    /**
+     * 获取视频下一个还没上传的分片序号
+     * @param hash 视频的hash值
+     * @return CustomResponse对象
+     */
     @Override
     public CustomResponse askCurrentChunk(String hash) {
         // 获取分片文件的存储目录
@@ -56,6 +75,14 @@ public class VideoServiceImpl implements VideoService {
         return customResponse;
     }
 
+    /**
+     * 上传单个视频分片
+     * @param chunk 分片文件
+     * @param hash  视频的hash值
+     * @param index 当前分片的序号
+     * @return  CustomResponse对象
+     * @throws IOException
+     */
     @Override
     public CustomResponse uploadChunk(MultipartFile chunk, String hash, Integer index) throws IOException {
         CustomResponse customResponse = new CustomResponse();
@@ -77,6 +104,11 @@ public class VideoServiceImpl implements VideoService {
         return customResponse;
     }
 
+    /**
+     * 取消上传并且删除该视频的分片文件
+     * @param hash 视频的hash值
+     * @return CustomResponse对象
+     */
     @Override
     public CustomResponse cancelUpload(String hash) {
         // 获取分片文件的存储目录
@@ -95,13 +127,16 @@ public class VideoServiceImpl implements VideoService {
         return new CustomResponse();
     }
 
-
+    /**
+     * 接收前端提供的视频信息，包括封面文件和稿件的其他信息，保存完封面后将信息发送到消息队列，并返回投稿成功响应
+     * @param cover 封面图片文件
+     * @param videoUploadInfo 存放投稿信息的 VideoUploadInfo 对象
+     * @return  CustomResponse对象
+     * @throws JsonProcessingException
+     */
     @Override
-    public CustomResponse addVideo(MultipartFile cover, VideoUploadInfo videoUploadInfo) {
-        UsernamePasswordAuthenticationToken authenticationToken =
-                (UsernamePasswordAuthenticationToken) SecurityContextHolder.getContext().getAuthentication();
-        UserDetailsImpl loginUser = (UserDetailsImpl) authenticationToken.getPrincipal();
-        User suser = loginUser.getUser();
+    public CustomResponse addVideo(MultipartFile cover, VideoUploadInfo videoUploadInfo) throws JsonProcessingException {
+        Integer loginUserId = currentUser.getUserId();
         // 值的判定 虽然前端会判 防止非法请求 不过数据库也写不进去 但会影响封面保存
         if (videoUploadInfo.getTitle().trim().length() == 0) {
             return new CustomResponse(500, "标题不能为空", null);
@@ -126,14 +161,23 @@ public class VideoServiceImpl implements VideoService {
             throw new RuntimeException(e);
         }
         // 将投稿信息封装发送到消息队列等待监听写库
-        videoUploadInfo.setUid(suser.getUid());
+        videoUploadInfo.setUid(loginUserId);
 
-        mergeChunks(videoUploadInfo);   // 这里先暂时用异步操作测试着先
+//        mergeChunks(videoUploadInfo);   // 这里先暂时用异步操作测试着先
+
+        // 序列化 videoUploadInfo 对象为 String， 往 rabbitmq 中发送投稿信息
+        ObjectMapper objectMapper = new ObjectMapper();
+        String jsonPayload = objectMapper.writeValueAsString(videoUploadInfo);
+        rabbitTemplate.convertAndSend("direct_upload_exchange", "videoUpload", jsonPayload);
 
         return new CustomResponse();
     }
 
-    @Async
+    /**
+     * 已弃用
+     * 合并分片并将投稿信息写入数据库，已更换监听消息队列的 handleMergeChunks 方法代替
+     * @param vui 存放投稿信息的 VideoUploadInfo 对象
+     */
     public void mergeChunks(VideoUploadInfo vui) {
         // 获取分片文件的存储目录
         File chunkDir = new File(CHUNK_DIRECTORY);
@@ -173,6 +217,7 @@ public class VideoServiceImpl implements VideoService {
                     vui.getTitle(),
                     vui.getType(),
                     vui.getAuth(),
+                    vui.getDuration(),
                     vui.getMcId(),
                     vui.getScId(),
                     vui.getTags(),
@@ -184,6 +229,8 @@ public class VideoServiceImpl implements VideoService {
                     null
                 );
                 videoMapper.insert(video);
+                videoStatsMapper.insert(new VideoStats(video.getVid(),0,0,0,0,0,0,0));
+                redisUtil.setExObjectValue("video:" + video.getVid(), video);
 
                 // 其他逻辑 （发送消息通知写库成功）
 

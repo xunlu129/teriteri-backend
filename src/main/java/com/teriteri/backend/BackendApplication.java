@@ -10,7 +10,6 @@ import org.springframework.scheduling.annotation.EnableScheduling;
 // 优质的 spring/boot/data/security/cloud 框架中文文档尽在 => https://springdoc.cn
 @SpringBootApplication
 @EnableScheduling   // 启用定时任务
-@EnableAsync    // 启用异步处理
 public class BackendApplication {
 
     public static void main(String[] args) {

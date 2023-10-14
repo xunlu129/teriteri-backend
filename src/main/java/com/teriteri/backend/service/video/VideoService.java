@@ -1,5 +1,6 @@
 package com.teriteri.backend.service.video;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
 import com.teriteri.backend.pojo.CustomResponse;
 import com.teriteri.backend.pojo.VideoUploadInfo;
 import org.springframework.web.multipart.MultipartFile;
@@ -15,5 +16,5 @@ public interface VideoService {
 
     CustomResponse cancelUpload(String hash);
 
-    CustomResponse addVideo(MultipartFile cover, VideoUploadInfo videoUploadInfo);
+    CustomResponse addVideo(MultipartFile cover, VideoUploadInfo videoUploadInfo) throws JsonProcessingException;
 }

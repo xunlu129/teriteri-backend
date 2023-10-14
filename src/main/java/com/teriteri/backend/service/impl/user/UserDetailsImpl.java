@@ -1,4 +1,4 @@
-package com.teriteri.backend.service.impl;
+package com.teriteri.backend.service.impl.user;
 
 import com.teriteri.backend.pojo.User;
 import lombok.AllArgsConstructor;
