@@ -3,10 +3,8 @@ package com.teriteri.backend.service.impl.video;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.teriteri.backend.mapper.VideoMapper;
-import com.teriteri.backend.pojo.CustomResponse;
-import com.teriteri.backend.pojo.User;
-import com.teriteri.backend.pojo.Video;
-import com.teriteri.backend.pojo.VideoUploadInfo;
+import com.teriteri.backend.mapper.VideoStatsMapper;
+import com.teriteri.backend.pojo.*;
 import com.teriteri.backend.service.impl.user.UserDetailsImpl;
 import com.teriteri.backend.service.utils.CurrentUser;
 import com.teriteri.backend.service.video.VideoService;
@@ -43,6 +41,9 @@ public class VideoServiceImpl implements VideoService {
 
     @Autowired
     private VideoMapper videoMapper;
+
+    @Autowired
+    private VideoStatsMapper videoStatsMapper;
 
     @Autowired
     private RedisUtil redisUtil;
@@ -216,6 +217,7 @@ public class VideoServiceImpl implements VideoService {
                     vui.getTitle(),
                     vui.getType(),
                     vui.getAuth(),
+                    vui.getDuration(),
                     vui.getMcId(),
                     vui.getScId(),
                     vui.getTags(),
@@ -227,6 +229,8 @@ public class VideoServiceImpl implements VideoService {
                     null
                 );
                 videoMapper.insert(video);
+                videoStatsMapper.insert(new VideoStats(video.getVid(),0,0,0,0,0,0,0));
+                redisUtil.setExObjectValue("video:" + video.getVid(), video);
 
                 // 其他逻辑 （发送消息通知写库成功）
 

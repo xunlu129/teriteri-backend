@@ -42,11 +42,12 @@ public class VideoController {
                                    @RequestParam("title") String title,
                                    @RequestParam("type") Integer type,
                                    @RequestParam("auth") Integer auth,
+                                   @RequestParam("duration") Double duration,
                                    @RequestParam("mcid") String mcid,
                                    @RequestParam("scid") String scid,
                                    @RequestParam("tags") String tags,
                                    @RequestParam("descr") String descr) throws JsonProcessingException {
-        VideoUploadInfo videoUploadInfo = new VideoUploadInfo(null, hash, title, type, auth, mcid, scid, tags, descr, null);
+        VideoUploadInfo videoUploadInfo = new VideoUploadInfo(null, hash, title, type, auth, duration, mcid, scid, tags, descr, null);
         return videoService.addVideo(cover, videoUploadInfo);
     }
 }

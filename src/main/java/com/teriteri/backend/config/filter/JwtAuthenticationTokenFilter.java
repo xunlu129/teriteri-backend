@@ -56,7 +56,8 @@ public class JwtAuthenticationTokenFilter extends OncePerRequestFilter {
             log.error("当前token已过期");
             response.addHeader("message", "not login"); // 设置响应头信息，给前端判断用
             response.setStatus(403);
-            throw new AuthenticationException("当前token已过期");
+//            throw new AuthenticationException("当前token已过期");
+            return;
         }
         String userId = JwtUtil.getSubjectFromToken(token);
         String role = JwtUtil.getClaimFromToken(token, "role");
@@ -68,7 +69,8 @@ public class JwtAuthenticationTokenFilter extends OncePerRequestFilter {
             log.error("用户未登录");
             response.addHeader("message", "not login"); // 设置响应头信息，给前端判断用
             response.setStatus(403);
-            throw new AuthenticationException("用户未登录");
+//            throw new AuthenticationException("用户未登录");
+            return;
         }
 
         // 存入SecurityContextHolder，这里建议只供读取uid用，其中的状态等非静态数据可能不准，所以建议redis另外存值
