@@ -4,8 +4,8 @@ import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
 import com.teriteri.backend.mapper.UserMapper;
 import com.teriteri.backend.pojo.CustomResponse;
 import com.teriteri.backend.pojo.User;
-import com.teriteri.backend.service.impl.UserDetailsImpl;
 import com.teriteri.backend.service.user.UserAccountService;
+import com.teriteri.backend.service.utils.CurrentUser;
 import com.teriteri.backend.utils.JwtUtil;
 import com.teriteri.backend.utils.RedisUtil;
 import lombok.extern.slf4j.Slf4j;
@@ -13,7 +13,6 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.authentication.AuthenticationProvider;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.Authentication;
-import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 
@@ -31,6 +30,9 @@ public class UserAccountServiceImpl implements UserAccountService {
 
     @Autowired
     private JwtUtil jwtUtil;
+
+    @Autowired
+    private CurrentUser currentUser;
 
     @Autowired
     private PasswordEncoder passwordEncoder;
@@ -194,17 +196,13 @@ public class UserAccountServiceImpl implements UserAccountService {
      */
     @Override
     public CustomResponse personalInfo() {
-        UsernamePasswordAuthenticationToken authenticationToken =
-                (UsernamePasswordAuthenticationToken) SecurityContextHolder.getContext().getAuthentication();
-        UserDetailsImpl loginUser = (UserDetailsImpl) authenticationToken.getPrincipal();
-        User suser = loginUser.getUser();    // 这里的user是登录时存的security:user，因为是静态数据，可能会跟实际的有区别，所以只能用作获取uid用
-
+        Integer LoginUserId = currentUser.getUserId();
         // 从redis中获取最新数据
-        User user = redisUtil.getObject("user:" + suser.getUid(), User.class);
+        User user = redisUtil.getObject("user:" + LoginUserId, User.class);
 
         // 如果redis中没有user数据，就从mysql中获取并更新到redis
         if (user == null) {
-            user = userMapper.selectById(suser.getUid());
+            user = userMapper.selectById(LoginUserId);
             redisUtil.setExObjectValue("user:" + user.getUid(), user);  // 默认存活1小时
         }
 
@@ -233,14 +231,10 @@ public class UserAccountServiceImpl implements UserAccountService {
      */
     @Override
     public void logout() {
-        UsernamePasswordAuthenticationToken authenticationToken =
-                (UsernamePasswordAuthenticationToken) SecurityContextHolder.getContext().getAuthentication();
-        UserDetailsImpl loginUser = (UserDetailsImpl) authenticationToken.getPrincipal();
-        User suser = loginUser.getUser();
-
+        Integer LoginUserId = currentUser.getUserId();
         // 清除redis中该用户的登录认证数据，不需要抛异常，有没有删掉都没关系，系统会轮询处理过期登录
-        redisUtil.delValue("token:user:" + suser.getUid());
-        redisUtil.delValue("security:user:" + suser.getUid());
-        redisUtil.delMember("login_member", suser.getUid());
+        redisUtil.delValue("token:user:" + LoginUserId);
+        redisUtil.delValue("security:user:" + LoginUserId);
+        redisUtil.delMember("login_member", LoginUserId);
     }
 }

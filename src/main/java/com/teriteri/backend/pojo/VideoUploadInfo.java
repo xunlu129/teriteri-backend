@@ -13,6 +13,7 @@ public class VideoUploadInfo {
     private String title;
     private Integer type;
     private Integer auth;
+    private Double duration;
     private String mcId;
     private String scId;
     private String tags;
