@@ -191,6 +191,59 @@ public class UserAccountServiceImpl implements UserAccountService {
     }
 
     /**
+     * 管理员登录
+     * @param username 账号
+     * @param password 密码
+     * @return CustomResponse对象
+     */
+    @Override
+    public CustomResponse adminLogin(String username, String password) {
+        UsernamePasswordAuthenticationToken authenticationToken =
+                new UsernamePasswordAuthenticationToken(username, password);
+        Authentication authenticate = authenticationProvider.authenticate(authenticationToken);
+        UserDetailsImpl loginUser = (UserDetailsImpl) authenticate.getPrincipal();
+        User user = loginUser.getUser();
+        CustomResponse customResponse = new CustomResponse();
+        // 普通用户无权访问
+        if (user.getRole() == 0) {
+            customResponse.setCode(403);
+            customResponse.setMessage("您不是管理员，无权访问");
+            return customResponse;
+        }
+        // 顺便更新redis中的数据
+        redisUtil.setExObjectValue("user:" + user.getUid(), user);  // 默认存活1小时
+        // 检查账号状态，1 表示封禁中，不允许登录
+        if (user.getState() == 1) {
+            customResponse.setCode(403);
+            customResponse.setMessage("账号异常，封禁中");
+            return customResponse;
+        }
+        //将uid封装成一个jwttoken，同时token也会被缓存到redis中
+        String token = jwtUtil.createToken(user.getUid().toString(), "admin");
+        try {
+            redisUtil.setExObjectValue("security:admin:" + user.getUid(), user, 60L * 60 * 24 * 2, TimeUnit.SECONDS);
+        } catch (Exception e) {
+            log.error("存储redis数据失败");
+            throw e;
+        }
+        // 每次登录顺便返回user信息，就省去再次发送一次获取用户个人信息的请求
+        Map<String, Object> map = new HashMap<>();
+        map.put("uid", user.getUid());
+        map.put("nickname", user.getNickname());
+        map.put("avatar_url", user.getAvatar());
+        map.put("description", user.getDescription());
+        map.put("exp", user.getExp());
+        map.put("state", user.getState());
+
+        Map<String, Object> final_map = new HashMap<>();
+        final_map.put("token", token);
+        final_map.put("user", map);
+        customResponse.setMessage("欢迎回来，主人≥⏝⏝≤");
+        customResponse.setData(final_map);
+        return customResponse;
+    }
+
+    /**
      * 获取用户个人信息
      * @return CustomResponse对象
      */
@@ -227,6 +280,44 @@ public class UserAccountServiceImpl implements UserAccountService {
     }
 
     /**
+     * 获取管理员个人信息
+     * @return CustomResponse对象
+     */
+    @Override
+    public CustomResponse adminPersonalInfo() {
+        Integer LoginUserId = currentUser.getUserId();
+        // 从redis中获取最新数据
+        User user = redisUtil.getObject("user:" + LoginUserId, User.class);
+        // 如果redis中没有user数据，就从mysql中获取并更新到redis
+        if (user == null) {
+            user = userMapper.selectById(LoginUserId);
+            redisUtil.setExObjectValue("user:" + user.getUid(), user);  // 默认存活1小时
+        }
+        CustomResponse customResponse = new CustomResponse();
+        // 普通用户无权访问
+        if (user.getRole() == 0) {
+            customResponse.setCode(403);
+            customResponse.setMessage("您不是管理员，无权访问");
+            return customResponse;
+        }
+        // 检查账号状态，1 表示封禁中，不允许登录
+        if (user.getState() == 1) {
+            customResponse.setCode(403);
+            customResponse.setMessage("账号异常，封禁中");
+            return customResponse;
+        }
+        Map<String, Object> map = new HashMap<>();
+        map.put("uid", user.getUid());
+        map.put("nickname", user.getNickname());
+        map.put("avatar_url", user.getAvatar());
+        map.put("description", user.getDescription());
+        map.put("exp", user.getExp());
+        map.put("state", user.getState());
+        customResponse.setData(map);
+        return customResponse;
+    }
+
+    /**
      * 退出登录，清空redis中相关用户登录认证
      */
     @Override
@@ -236,5 +327,16 @@ public class UserAccountServiceImpl implements UserAccountService {
         redisUtil.delValue("token:user:" + LoginUserId);
         redisUtil.delValue("security:user:" + LoginUserId);
         redisUtil.delMember("login_member", LoginUserId);
+    }
+
+    /**
+     * 管理员退出登录，清空redis中相关管理员登录认证
+     */
+    @Override
+    public void adminLogout() {
+        Integer LoginUserId = currentUser.getUserId();
+        // 清除redis中该用户的登录认证数据，不需要抛异常，有没有删掉都没关系，系统会轮询处理过期登录
+        redisUtil.delValue("token:admin:" + LoginUserId);
+        redisUtil.delValue("security:admin:" + LoginUserId);
     }
 }
