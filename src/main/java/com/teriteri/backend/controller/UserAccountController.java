@@ -43,6 +43,18 @@ public class UserAccountController {
     }
 
     /**
+     * 管理员登录接口
+     * @param map 包含 username password 的 map
+     * @return CustomResponse对象
+     */
+    @PostMapping("/admin/account/login")
+    public CustomResponse adminLogin(@RequestBody Map<String, String> map) {
+        String username = map.get("username");
+        String password = map.get("password");
+        return userAccountService.adminLogin(username, password);
+    }
+
+    /**
      * 获取当前登录用户信息接口
      * @return CustomResponse对象
      */
@@ -52,10 +64,27 @@ public class UserAccountController {
     }
 
     /**
+     * 获取当前登录管理员信息接口
+     * @return CustomResponse对象
+     */
+    @GetMapping("/admin/personal/info")
+    public CustomResponse adminPersonalInfo() {
+        return userAccountService.adminPersonalInfo();
+    }
+
+    /**
      * 退出登录接口
      */
     @GetMapping("/user/account/logout")
     public void logout() {
         userAccountService.logout();
+    }
+
+    /**
+     * 管理员退出登录接口
+     */
+    @GetMapping("/admin/account/logout")
+    public void adminLogout() {
+        userAccountService.adminLogout();
     }
 }

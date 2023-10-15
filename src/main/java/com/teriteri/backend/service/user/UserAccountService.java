@@ -9,7 +9,13 @@ public interface UserAccountService {
 
     CustomResponse login(String username, String password);
 
+    CustomResponse adminLogin(String username, String password);
+
     CustomResponse personalInfo();
 
+    CustomResponse adminPersonalInfo();
+
     void logout();
+
+    void adminLogout();
 }
