@@ -16,5 +16,5 @@ public interface VideoService {
 
     CustomResponse cancelUpload(String hash);
 
-    CustomResponse addVideo(MultipartFile cover, VideoUploadInfo videoUploadInfo) throws JsonProcessingException;
+    CustomResponse addVideo(MultipartFile cover, VideoUploadInfo videoUploadInfo) throws IOException;
 }
