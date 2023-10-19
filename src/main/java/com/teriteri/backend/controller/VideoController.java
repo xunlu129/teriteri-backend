@@ -46,7 +46,7 @@ public class VideoController {
                                    @RequestParam("mcid") String mcid,
                                    @RequestParam("scid") String scid,
                                    @RequestParam("tags") String tags,
-                                   @RequestParam("descr") String descr) throws JsonProcessingException {
+                                   @RequestParam("descr") String descr) throws IOException {
         VideoUploadInfo videoUploadInfo = new VideoUploadInfo(null, hash, title, type, auth, duration, mcid, scid, tags, descr, null);
         return videoService.addVideo(cover, videoUploadInfo);
     }
