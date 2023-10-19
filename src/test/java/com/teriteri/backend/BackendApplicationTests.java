@@ -1,13 +1,23 @@
 package com.teriteri.backend;
 
 import com.alibaba.druid.pool.DruidDataSource;
+import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
+import com.teriteri.backend.mapper.VideoMapper;
+import com.teriteri.backend.pojo.Video;
+import com.teriteri.backend.utils.OssUploadUtil;
 import com.teriteri.backend.utils.RedisUtil;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.data.redis.core.RedisTemplate;
+import org.springframework.mock.web.MockMultipartFile;
+import org.springframework.web.multipart.MultipartFile;
 
 import javax.sql.DataSource;
+import java.io.File;
+import java.io.FileInputStream;
+import java.io.IOException;
+import java.nio.file.Paths;
 import java.sql.Connection;
 import java.sql.SQLException;
 
@@ -21,6 +31,12 @@ class ApplicationTests {
 
     @Autowired
     private RedisUtil redisUtil;
+
+    @Autowired
+    private VideoMapper videoMapper;
+
+    @Autowired
+    private OssUploadUtil ossUploadUtil;
 
     @Test
     void contextLoads() throws SQLException {
@@ -47,6 +63,30 @@ class ApplicationTests {
 //        connection.flushDb();
 //        connection.close();
 
+    }
+
+    @Test
+    void ossUploadImg() throws IOException {
+        QueryWrapper<Video> queryWrapper = new QueryWrapper<>();
+        queryWrapper.eq("vid", 3);
+        Video video = videoMapper.selectOne(queryWrapper);
+        String filePath = video.getCoverUrl();
+        File file = new File(filePath);
+        FileInputStream fileInputStream = new FileInputStream(file);
+        MultipartFile multipartFile = new MockMultipartFile(file.getName(), file.getName(),
+                "application/sql", fileInputStream);
+        String url = ossUploadUtil.uploadImage(multipartFile, "cover");
+        System.out.println(url);
+    }
+
+    @Test
+    void ossCountFiles() {
+        System.out.println(ossUploadUtil.countFiles("img/cover/1696"));
+    }
+
+    @Test
+    void ossdeleteFiles() {
+        ossUploadUtil.deleteFiles("img/cover/1696");
     }
 
 }

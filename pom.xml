@@ -131,6 +131,19 @@
             <version>2.13.0</version>
         </dependency>
 
+        <!--阿里云OSS对象存储-->
+        <dependency>
+            <groupId>com.aliyun.oss</groupId>
+            <artifactId>aliyun-sdk-oss</artifactId>
+            <version>3.17.1</version>
+        </dependency>
+
+        <dependency>
+            <groupId>commons-beanutils</groupId>
+            <artifactId>commons-beanutils</artifactId>
+            <version>1.9.3</version>
+        </dependency>
+
         <!--配置注解处理器-->
         <dependency>
             <groupId>org.springframework.boot</groupId>
