@@ -81,12 +81,12 @@ class ApplicationTests {
 
     @Test
     void ossCountFiles() {
-        System.out.println(ossUploadUtil.countFiles("img/cover/", "1696"));
+        System.out.println(ossUploadUtil.countFiles("img/cover/1696"));
     }
 
     @Test
     void ossdeleteFiles() {
-        ossUploadUtil.deleteFiles("img/cover/", "1696");
+        ossUploadUtil.deleteFiles("img/cover/1696");
     }
 
 }

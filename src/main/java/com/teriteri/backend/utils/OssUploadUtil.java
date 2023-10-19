@@ -181,15 +181,14 @@ public class OssUploadUtil {
 
     /**
      * 查询指定目录下，指定前缀的文件数量，阿里云限制了单次查询最多100条
-     * @param directory 指定目录，记得后面加上"/"，如果在根目录填""
-     * @param prefix    要筛选的文件名前缀
+     * @param prefix  要筛选的文件名前缀，包括目录路径，如果为空字符串，则查询全部文件
      * @return  指定目录下，指定前缀的文件数量
      */
-    public int countFiles(@NonNull String directory, @NonNull String prefix) {
+    public int countFiles(@NonNull String prefix) {
         int count = 0;
         try {
             ListObjectsRequest listObjectsRequest = new ListObjectsRequest(OSS_BUCKET);
-            listObjectsRequest.setPrefix(directory + prefix);
+            listObjectsRequest.setPrefix(prefix);
             ObjectListing objectListing = ossClient.listObjects(listObjectsRequest);
             List<OSSObjectSummary> objectSummaries = objectListing.getObjectSummaries();
             count = objectSummaries.size();
@@ -205,12 +204,10 @@ public class OssUploadUtil {
 
     /**
      * 删除指定目录下指定前缀的所有文件，不允许目录和前缀都是空字符串
-     * @param directory 指定目录，记得后面加上"/"，如果在根目录就填""
-     * @param prefix    要筛选的文件名前缀
+     * @param prefix    要筛选的文件名前缀，包括目录路径，不允许为空字符串
      */
-    public void deleteFiles(@NonNull String directory, @NonNull String prefix) {
-        String pf = directory + prefix;
-        if (pf.equals("")) {
+    public void deleteFiles(@NonNull String prefix) {
+        if (prefix.equals("")) {
             log.warn("你正试图删除整个bucket，已拒绝该危险操作");
             return;
         }
@@ -219,7 +216,7 @@ public class OssUploadUtil {
             String nextMarker = null;
             ObjectListing objectListing;
             do {
-                ListObjectsRequest listObjectsRequest = new ListObjectsRequest(OSS_BUCKET).withPrefix(pf).withMarker(nextMarker);
+                ListObjectsRequest listObjectsRequest = new ListObjectsRequest(OSS_BUCKET).withPrefix(prefix).withMarker(nextMarker);
                 objectListing = ossClient.listObjects(listObjectsRequest);
                 if (objectListing.getObjectSummaries().size() > 0) {
                     List<String> keys = new ArrayList<>();
