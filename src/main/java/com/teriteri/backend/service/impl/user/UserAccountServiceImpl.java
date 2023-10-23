@@ -114,6 +114,7 @@ public class UserAccountServiceImpl implements UserAccountService {
                 encodedPassword,
                 "用户_" + new_user_uid,
                 avatar_url,
+                2,
                 "这个人很懒，什么都没留下~",
                 0,
                 0,
@@ -178,6 +179,7 @@ public class UserAccountServiceImpl implements UserAccountService {
         map.put("uid", user.getUid());
         map.put("nickname", user.getNickname());
         map.put("avatar_url", user.getAvatar());
+        map.put("gender", user.getGender());
         map.put("description", user.getDescription());
         map.put("exp", user.getExp());
         map.put("state", user.getState());
@@ -231,6 +233,7 @@ public class UserAccountServiceImpl implements UserAccountService {
         map.put("uid", user.getUid());
         map.put("nickname", user.getNickname());
         map.put("avatar_url", user.getAvatar());
+        map.put("gender", user.getGender());
         map.put("description", user.getDescription());
         map.put("exp", user.getExp());
         map.put("state", user.getState());
@@ -271,6 +274,7 @@ public class UserAccountServiceImpl implements UserAccountService {
         map.put("uid", user.getUid());
         map.put("nickname", user.getNickname());
         map.put("avatar_url", user.getAvatar());
+        map.put("gender", user.getGender());
         map.put("description", user.getDescription());
         map.put("exp", user.getExp());
         map.put("state", user.getState());
@@ -310,6 +314,7 @@ public class UserAccountServiceImpl implements UserAccountService {
         map.put("uid", user.getUid());
         map.put("nickname", user.getNickname());
         map.put("avatar_url", user.getAvatar());
+        map.put("gender", user.getGender());
         map.put("description", user.getDescription());
         map.put("exp", user.getExp());
         map.put("state", user.getState());
