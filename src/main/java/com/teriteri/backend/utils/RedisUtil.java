@@ -220,6 +220,15 @@ public class RedisUtil {
     }
 
     /**
+     * 向SET中添加无过期时间的对象列表
+     * @param key
+     * @param list
+     */
+    public void addMembers(String key, List<Object> list) {
+        redisTemplate.opsForSet().add(key, list.toArray());
+    }
+
+    /**
      * 向SET中添加有过期时间的对象
      * @param key
      * @param value

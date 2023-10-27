@@ -20,6 +20,7 @@ import java.io.IOException;
 import java.nio.file.Paths;
 import java.sql.Connection;
 import java.sql.SQLException;
+import java.util.Set;
 
 @SpringBootTest
 class ApplicationTests {
@@ -63,6 +64,12 @@ class ApplicationTests {
 //        connection.flushDb();
 //        connection.close();
 
+    }
+
+    @Test
+    void redisGetMembers() {
+        Set<Object> set = redisUtil.getMembers("video_status:0");
+        System.out.println(set);
     }
 
     @Test

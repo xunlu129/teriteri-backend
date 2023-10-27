@@ -13,7 +13,6 @@ import org.apache.commons.io.FileUtils;
 import org.springframework.amqp.rabbit.annotation.RabbitHandler;
 import org.springframework.amqp.rabbit.annotation.RabbitListener;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
@@ -24,7 +23,6 @@ import java.util.Arrays;
 import java.util.Comparator;
 import java.util.Date;
 import java.util.List;
-import java.util.concurrent.*;
 import java.util.stream.Collectors;
 
 
@@ -51,7 +49,7 @@ public class DirectVideoUploadConsumer {
     private OssUploadUtil ossUploadUtil;
 
     @Autowired
-    private VideoServiceImpl videoServiceImpl;
+    private VideoUploadServiceImpl videoUploadService;
 
     /**
      * 监听消息队列，获取投稿信息，合并分片文件并把信息写入数据库
@@ -132,7 +130,7 @@ public class DirectVideoUploadConsumer {
                 null
         );
         videoMapper.insert(video);
-        videoServiceImpl.updateVideoStatsToRedis(video);
+        videoUploadService.updateVideoStatsToRedis(video);
 
         // 其他逻辑 （发送消息通知写库成功）
     }

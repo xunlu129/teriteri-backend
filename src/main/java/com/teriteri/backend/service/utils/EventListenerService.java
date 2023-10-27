@@ -1,6 +1,10 @@
 package com.teriteri.backend.service.utils;
 
+import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
+import com.teriteri.backend.mapper.VideoMapper;
+import com.teriteri.backend.pojo.Video;
 import com.teriteri.backend.utils.RedisUtil;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.scheduling.annotation.Scheduled;
@@ -16,8 +20,10 @@ import java.time.Instant;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
 import java.time.ZonedDateTime;
+import java.util.List;
 import java.util.Set;
 
+@Slf4j
 @Service
 public class EventListenerService {
 
@@ -26,6 +32,9 @@ public class EventListenerService {
 
     @Autowired
     private RedisUtil redisUtil;
+
+    @Autowired
+    private VideoMapper videoMapper;
 
     /**
      * 轮询用户登录状态，将登录过期但还在在线集合的用户移出集合
@@ -66,6 +75,22 @@ public class EventListenerService {
                     chunkFile.delete();
                 }
             }
+        }
+    }
+
+    /**
+     * 每小时同步一下待审核的视频集合
+     */
+    @Scheduled(fixedDelay = 1000 * 60 * 60)
+    public void updateUnderReviewVideos() {
+        QueryWrapper<Video> queryWrapper = new QueryWrapper<>();
+        queryWrapper.eq("status", 0).isNull("delete_date").select("vid");
+        List<Object> vidList = videoMapper.selectObjs(queryWrapper);
+        try {
+//            redisUtil.delValue("video_status:0");   // 先将原来的删掉
+            redisUtil.addMembers("video_status:0", vidList);
+        } catch (Exception e) {
+            log.error("redis更新待审核视频集合失败");
         }
     }
 }

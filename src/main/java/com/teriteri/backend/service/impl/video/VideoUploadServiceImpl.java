@@ -1,42 +1,33 @@
 package com.teriteri.backend.service.impl.video;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import com.teriteri.backend.mapper.VideoMapper;
 import com.teriteri.backend.mapper.VideoStatsMapper;
 import com.teriteri.backend.pojo.*;
-import com.teriteri.backend.service.impl.user.UserDetailsImpl;
 import com.teriteri.backend.service.utils.CurrentUser;
-import com.teriteri.backend.service.video.VideoService;
+import com.teriteri.backend.service.video.VideoUploadService;
 import com.teriteri.backend.utils.OssUploadUtil;
 import com.teriteri.backend.utils.RedisUtil;
 import lombok.extern.slf4j.Slf4j;
-import org.apache.commons.io.FileUtils;
 import org.springframework.amqp.rabbit.core.RabbitTemplate;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
-import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.io.File;
 import java.io.IOException;
 import java.nio.file.Paths;
-import java.util.Arrays;
-import java.util.Comparator;
 import java.util.Date;
-import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Executor;
 import java.util.concurrent.Future;
-import java.util.stream.Collectors;
 
 @Slf4j
 @Service
-public class VideoServiceImpl implements VideoService {
+public class VideoUploadServiceImpl implements VideoUploadService {
 
     @Value("${directory.cover}")
     private String COVER_DIRECTORY;   // 投稿封面存储目录
