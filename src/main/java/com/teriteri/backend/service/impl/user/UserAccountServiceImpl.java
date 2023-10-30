@@ -4,7 +4,9 @@ import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
 import com.teriteri.backend.mapper.UserMapper;
 import com.teriteri.backend.pojo.CustomResponse;
 import com.teriteri.backend.pojo.User;
+import com.teriteri.backend.pojo.dto.UserDTO;
 import com.teriteri.backend.service.user.UserAccountService;
+import com.teriteri.backend.service.user.UserService;
 import com.teriteri.backend.service.utils.CurrentUser;
 import com.teriteri.backend.utils.JwtUtil;
 import com.teriteri.backend.utils.RedisUtil;
@@ -22,6 +24,9 @@ import java.util.concurrent.TimeUnit;
 @Slf4j
 @Service
 public class UserAccountServiceImpl implements UserAccountService {
+    @Autowired
+    private UserService userService;
+
     @Autowired
     private UserMapper userMapper;
 
@@ -89,7 +94,8 @@ public class UserAccountServiceImpl implements UserAccountService {
 
         QueryWrapper<User> queryWrapper = new QueryWrapper<>();
         queryWrapper.eq("username", username);
-        User user = userMapper.selectOne(queryWrapper);   //查询数据库里值等于username的数据
+        queryWrapper.isNull("delete_date");
+        User user = userMapper.selectOne(queryWrapper);   //查询数据库里值等于username并且没有注销的数据
         if (user != null) {
             customResponse.setCode(403);
             customResponse.setMessage("账号已存在");
@@ -114,6 +120,7 @@ public class UserAccountServiceImpl implements UserAccountService {
                 encodedPassword,
                 "用户_" + new_user_uid,
                 avatar_url,
+                2,
                 "这个人很懒，什么都没留下~",
                 0,
                 0,
@@ -174,17 +181,18 @@ public class UserAccountServiceImpl implements UserAccountService {
         }
 
         // 每次登录顺便返回user信息，就省去再次发送一次获取用户个人信息的请求
-        Map<String, Object> map = new HashMap<>();
-        map.put("uid", user.getUid());
-        map.put("nickname", user.getNickname());
-        map.put("avatar_url", user.getAvatar());
-        map.put("description", user.getDescription());
-        map.put("exp", user.getExp());
-        map.put("state", user.getState());
+        UserDTO userDTO = new UserDTO();
+        userDTO.setUid(user.getUid());
+        userDTO.setNickname(user.getNickname());
+        userDTO.setAvatar_url(user.getAvatar());
+        userDTO.setGender(user.getGender());
+        userDTO.setDescription(user.getDescription());
+        userDTO.setExp(user.getExp());
+        userDTO.setState(user.getState());
 
         Map<String, Object> final_map = new HashMap<>();
         final_map.put("token", token);
-        final_map.put("user", map);
+        final_map.put("user", userDTO);
         customResponse.setMessage("登录成功");
         customResponse.setData(final_map);
         return customResponse;
@@ -227,17 +235,18 @@ public class UserAccountServiceImpl implements UserAccountService {
             throw e;
         }
         // 每次登录顺便返回user信息，就省去再次发送一次获取用户个人信息的请求
-        Map<String, Object> map = new HashMap<>();
-        map.put("uid", user.getUid());
-        map.put("nickname", user.getNickname());
-        map.put("avatar_url", user.getAvatar());
-        map.put("description", user.getDescription());
-        map.put("exp", user.getExp());
-        map.put("state", user.getState());
+        UserDTO userDTO = new UserDTO();
+        userDTO.setUid(user.getUid());
+        userDTO.setNickname(user.getNickname());
+        userDTO.setAvatar_url(user.getAvatar());
+        userDTO.setGender(user.getGender());
+        userDTO.setDescription(user.getDescription());
+        userDTO.setExp(user.getExp());
+        userDTO.setState(user.getState());
 
         Map<String, Object> final_map = new HashMap<>();
         final_map.put("token", token);
-        final_map.put("user", map);
+        final_map.put("user", userDTO);
         customResponse.setMessage("欢迎回来，主人≥⏝⏝≤");
         customResponse.setData(final_map);
         return customResponse;
@@ -249,33 +258,23 @@ public class UserAccountServiceImpl implements UserAccountService {
      */
     @Override
     public CustomResponse personalInfo() {
-        Integer LoginUserId = currentUser.getUserId();
-        // 从redis中获取最新数据
-        User user = redisUtil.getObject("user:" + LoginUserId, User.class);
-
-        // 如果redis中没有user数据，就从mysql中获取并更新到redis
-        if (user == null) {
-            user = userMapper.selectById(LoginUserId);
-            redisUtil.setExObjectValue("user:" + user.getUid(), user);  // 默认存活1小时
-        }
+        Integer loginUserId = currentUser.getUserId();
+        UserDTO userDTO = userService.getUserById(loginUserId);
 
         CustomResponse customResponse = new CustomResponse();
-        // 检查账号状态，1 表示封禁中，不允许登录
-        if (user.getState() == 1) {
+        // 检查账号状态，1 表示封禁中，不允许登录，2表示账号注销了
+        if (userDTO.getState() == 2) {
+            customResponse.setCode(404);
+            customResponse.setMessage("用户已注销");
+            return customResponse;
+        }
+        if (userDTO.getState() == 1) {
             customResponse.setCode(403);
             customResponse.setMessage("账号异常，封禁中");
             return customResponse;
         }
 
-        Map<String, Object> map = new HashMap<>();
-        map.put("uid", user.getUid());
-        map.put("nickname", user.getNickname());
-        map.put("avatar_url", user.getAvatar());
-        map.put("description", user.getDescription());
-        map.put("exp", user.getExp());
-        map.put("state", user.getState());
-
-        customResponse.setData(map);
+        customResponse.setData(userDTO);
         return customResponse;
     }
 
@@ -294,26 +293,33 @@ public class UserAccountServiceImpl implements UserAccountService {
             redisUtil.setExObjectValue("user:" + user.getUid(), user);  // 默认存活1小时
         }
         CustomResponse customResponse = new CustomResponse();
+
         // 普通用户无权访问
         if (user.getRole() == 0) {
             customResponse.setCode(403);
             customResponse.setMessage("您不是管理员，无权访问");
             return customResponse;
         }
-        // 检查账号状态，1 表示封禁中，不允许登录
+        // 检查账号状态，1 表示封禁中，不允许登录，2表示已注销
+        if (user.getState() == 2) {
+            customResponse.setCode(404);
+            customResponse.setMessage("用户已注销");
+            return customResponse;
+        }
         if (user.getState() == 1) {
             customResponse.setCode(403);
             customResponse.setMessage("账号异常，封禁中");
             return customResponse;
         }
-        Map<String, Object> map = new HashMap<>();
-        map.put("uid", user.getUid());
-        map.put("nickname", user.getNickname());
-        map.put("avatar_url", user.getAvatar());
-        map.put("description", user.getDescription());
-        map.put("exp", user.getExp());
-        map.put("state", user.getState());
-        customResponse.setData(map);
+        UserDTO userDTO = new UserDTO();
+        userDTO.setUid(user.getUid());
+        userDTO.setNickname(user.getNickname());
+        userDTO.setAvatar_url(user.getAvatar());
+        userDTO.setGender(user.getGender());
+        userDTO.setDescription(user.getDescription());
+        userDTO.setExp(user.getExp());
+        userDTO.setState(user.getState());
+        customResponse.setData(userDTO);
         return customResponse;
     }
 

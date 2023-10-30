@@ -1,20 +1,10 @@
 package com.teriteri.backend.service.video;
 
-import com.fasterxml.jackson.core.JsonProcessingException;
-import com.teriteri.backend.pojo.CustomResponse;
-import com.teriteri.backend.pojo.VideoUploadInfo;
-import org.springframework.web.multipart.MultipartFile;
-
-import java.io.IOException;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 public interface VideoService {
-    CustomResponse askCurrentChunk(String hash);
+    List<Map<String, Object>> getVideosWithUserAndCategoryByIds(Set<Object> set, Integer index, Integer quantity);
 
-    CustomResponse uploadChunk(MultipartFile chunk, String hash, Integer index) throws IOException;
-
-    CustomResponse cancelUpload(String hash);
-
-    CustomResponse addVideo(MultipartFile cover, VideoUploadInfo videoUploadInfo) throws IOException;
 }
