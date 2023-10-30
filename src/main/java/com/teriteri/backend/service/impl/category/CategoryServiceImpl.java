@@ -3,7 +3,8 @@ package com.teriteri.backend.service.impl.category;
 import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
 import com.teriteri.backend.mapper.CategoryMapper;
 import com.teriteri.backend.pojo.CustomResponse;
-import com.teriteri.backend.pojo.CategoryWrapper;
+import com.teriteri.backend.pojo.User;
+import com.teriteri.backend.pojo.dto.CategoryDTO;
 import com.teriteri.backend.pojo.Category;
 import com.teriteri.backend.service.category.CategoryService;
 import com.teriteri.backend.utils.RedisUtil;
@@ -30,11 +31,11 @@ public class CategoryServiceImpl implements CategoryService {
     @Override
     public CustomResponse getAll() {
         CustomResponse customResponse = new CustomResponse();
-        List<CategoryWrapper> sortedCategories = new ArrayList<>();
+        List<CategoryDTO> sortedCategories = new ArrayList<>();
 
         // 尝试从redis中获取数据
         try {
-            sortedCategories = redisUtil.getAllList("categoryList", CategoryWrapper.class);
+            sortedCategories = redisUtil.getAllList("categoryList", CategoryDTO.class);
             if (sortedCategories.size() != 0) {
                 customResponse.setData(sortedCategories);
                 return customResponse;
@@ -49,7 +50,7 @@ public class CategoryServiceImpl implements CategoryService {
         List<Category> list = categoryMapper.selectList(queryWrapper);
 
         // 开一个临时整合map
-        Map<String, CategoryWrapper> categoryWrapperMap = new HashMap<>();
+        Map<String, CategoryDTO> categoryDTOMap = new HashMap<>();
 
         for (Category category : list) {
             String mcId = category.getMcId();
@@ -64,12 +65,12 @@ public class CategoryServiceImpl implements CategoryService {
             }
 
             // 先将主分类和空的子分类列表整合到map中
-            if (!categoryWrapperMap.containsKey(mcId)) {
-                CategoryWrapper categoryWrapper = new CategoryWrapper();
-                categoryWrapper.setMcId(mcId);
-                categoryWrapper.setMcName(mcName);
-                categoryWrapper.setScList(new ArrayList<>());
-                categoryWrapperMap.put(mcId, categoryWrapper);
+            if (!categoryDTOMap.containsKey(mcId)) {
+                CategoryDTO categoryDTO = new CategoryDTO();
+                categoryDTO.setMcId(mcId);
+                categoryDTO.setMcName(mcName);
+                categoryDTO.setScList(new ArrayList<>());
+                categoryDTOMap.put(mcId, categoryDTO);
             }
 
             // 把子分类整合到map的子分类列表里
@@ -79,7 +80,7 @@ public class CategoryServiceImpl implements CategoryService {
             scMap.put("scName", scName);
             scMap.put("descr", descr);
             scMap.put("rcmTag", rcmTag);
-            categoryWrapperMap.get(mcId).getScList().add(scMap);
+            categoryDTOMap.get(mcId).getScList().add(scMap);
 
         }
 
@@ -90,8 +91,8 @@ public class CategoryServiceImpl implements CategoryService {
                 "fashion", "sports", "animal", "virtual");
 
         for (String mcId : sortOrder) {
-            if (categoryWrapperMap.containsKey(mcId)) {
-                sortedCategories.add(categoryWrapperMap.get(mcId));
+            if (categoryDTOMap.containsKey(mcId)) {
+                sortedCategories.add(categoryDTOMap.get(mcId));
             }
         }
         // 将分类添加到redis缓存中
@@ -102,5 +103,28 @@ public class CategoryServiceImpl implements CategoryService {
         }
         customResponse.setData(sortedCategories);
         return customResponse;
+    }
+
+    /**
+     * 根据id查询对应分区信息
+     * @param mcId 主分区ID
+     * @param scId 子分区ID
+     * @return Category类信息
+     */
+    @Override
+    public Category getCategoryById(String mcId, String scId) {
+        // 从redis中获取最新数据
+        Category category = redisUtil.getObject("category:" + mcId + ":" + scId, Category.class);
+        // 如果redis中没有数据，就从mysql中获取并更新到redis
+        if (category == null) {
+            QueryWrapper<Category> queryWrapper = new QueryWrapper<>();
+            queryWrapper.eq("mc_id", mcId).eq("sc_id", scId);
+            category = categoryMapper.selectOne(queryWrapper);
+            if (category == null) {
+                return new Category();    // 如果不存在则返回空
+            }
+            redisUtil.setExObjectValue("category:" + mcId + ":" + scId, category);  // 默认存活1小时
+        }
+        return category;
     }
 }

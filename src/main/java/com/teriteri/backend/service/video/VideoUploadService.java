@@ -1,7 +1,7 @@
 package com.teriteri.backend.service.video;
 
 import com.teriteri.backend.pojo.CustomResponse;
-import com.teriteri.backend.pojo.VideoUploadInfo;
+import com.teriteri.backend.pojo.dto.VideoUploadInfoDTO;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.io.IOException;
@@ -13,5 +13,5 @@ public interface VideoUploadService {
 
     CustomResponse cancelUpload(String hash);
 
-    CustomResponse addVideo(MultipartFile cover, VideoUploadInfo videoUploadInfo) throws IOException;
+    CustomResponse addVideo(MultipartFile cover, VideoUploadInfoDTO videoUploadInfoDTO) throws IOException;
 }

@@ -21,6 +21,7 @@ public class UserDetailsServiceImpl implements UserDetailsService {
     public UserDetails loadUserByUsername(String username) throws UsernameNotFoundException {
         QueryWrapper<User> queryWrapper = new QueryWrapper<>();
         queryWrapper.eq("username", username);
+        queryWrapper.isNull("delete_date");
         User user = userMapper.selectOne(queryWrapper);
         if (user == null) {
             log.error("用户不存在");

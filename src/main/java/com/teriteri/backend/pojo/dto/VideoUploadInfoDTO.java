@@ -1,4 +1,4 @@
-package com.teriteri.backend.pojo;
+package com.teriteri.backend.pojo.dto;
 
 import lombok.AllArgsConstructor;
 import lombok.Data;
@@ -7,7 +7,7 @@ import lombok.NoArgsConstructor;
 @Data
 @AllArgsConstructor
 @NoArgsConstructor
-public class VideoUploadInfo {
+public class VideoUploadInfoDTO {
     private Integer uid;
     private String hash;
     private String title;

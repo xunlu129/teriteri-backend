@@ -79,18 +79,22 @@ public class EventListenerService {
     }
 
     /**
-     * 每小时同步一下待审核的视频集合
+     * 每两小时同步一下各状态的视频集合
      */
-    @Scheduled(fixedDelay = 1000 * 60 * 60)
-    public void updateUnderReviewVideos() {
-        QueryWrapper<Video> queryWrapper = new QueryWrapper<>();
-        queryWrapper.eq("status", 0).isNull("delete_date").select("vid");
-        List<Object> vidList = videoMapper.selectObjs(queryWrapper);
-        try {
-//            redisUtil.delValue("video_status:0");   // 先将原来的删掉
-            redisUtil.addMembers("video_status:0", vidList);
-        } catch (Exception e) {
-            log.error("redis更新待审核视频集合失败");
+    @Scheduled(fixedDelay = 1000 * 60 * 60 * 2)
+    public void updateVideoStatus() {
+        for (int i = 0; i < 3; i++) {
+            QueryWrapper<Video> queryWrapper = new QueryWrapper<>();
+            queryWrapper.eq("status", i).isNull("delete_date").select("vid");
+            List<Object> vidList = videoMapper.selectObjs(queryWrapper);
+            try {
+                redisUtil.delValue("video_status:" + i);   // 先将原来的删掉
+                if (vidList != null && vidList.size() > 0) {
+                    redisUtil.addMembers("video_status:" + i, vidList);
+                }
+            } catch (Exception e) {
+                log.error("redis更新审核视频集合失败");
+            }
         }
     }
 }

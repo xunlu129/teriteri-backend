@@ -1,7 +1,7 @@
 package com.teriteri.backend.controller;
 
 import com.teriteri.backend.pojo.CustomResponse;
-import com.teriteri.backend.pojo.VideoUploadInfo;
+import com.teriteri.backend.pojo.dto.VideoUploadInfoDTO;
 import com.teriteri.backend.service.video.VideoUploadService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -17,11 +17,24 @@ public class VideoUploadController {
     @Autowired
     private VideoUploadService videoUploadService;
 
+    /**
+     * 查询当前视频准备要上传的分片序号
+     * @param hash 视频的hash值
+     * @return
+     */
     @GetMapping("/video/ask-chunk")
     public CustomResponse askChunk(@RequestParam("hash") String hash) {
         return videoUploadService.askCurrentChunk(hash);
     }
 
+    /**
+     * 上传分片
+     * @param chunk 分片的blob文件
+     * @param hash  视频的hash值
+     * @param index 当前分片的序号
+     * @return
+     * @throws IOException
+     */
     @PostMapping("/video/upload-chunk")
     public CustomResponse uploadChunk(@RequestParam("chunk") MultipartFile chunk,
                                       @RequestParam("hash") String hash,
@@ -29,11 +42,31 @@ public class VideoUploadController {
         return videoUploadService.uploadChunk(chunk, hash, index);
     }
 
+    /**
+     * 取消上传
+     * @param hash 视频的hash值
+     * @return
+     */
     @GetMapping("/video/cancel-upload")
     public CustomResponse cancelUpload(@RequestParam("hash") String hash) {
         return videoUploadService.cancelUpload(hash);
     }
 
+    /**
+     * 添加视频投稿
+     * @param cover 封面文件
+     * @param hash  视频的hash值
+     * @param title 投稿标题
+     * @param type  视频类型 1自制 2转载
+     * @param auth  作者声明 0不声明 1未经允许禁止转载
+     * @param duration 视频总时长
+     * @param mcid  主分区ID
+     * @param scid  子分区ID
+     * @param tags  标签
+     * @param descr 简介
+     * @return
+     * @throws IOException
+     */
     @PostMapping("/video/add")
     public CustomResponse addVideo(@RequestParam("cover") MultipartFile cover,
                                    @RequestParam("hash") String hash,
@@ -45,7 +78,7 @@ public class VideoUploadController {
                                    @RequestParam("scid") String scid,
                                    @RequestParam("tags") String tags,
                                    @RequestParam("descr") String descr) throws IOException {
-        VideoUploadInfo videoUploadInfo = new VideoUploadInfo(null, hash, title, type, auth, duration, mcid, scid, tags, descr, null);
-        return videoUploadService.addVideo(cover, videoUploadInfo);
+        VideoUploadInfoDTO videoUploadInfoDTO = new VideoUploadInfoDTO(null, hash, title, type, auth, duration, mcid, scid, tags, descr, null);
+        return videoUploadService.addVideo(cover, videoUploadInfoDTO);
     }
 }

@@ -3,7 +3,10 @@ package com.teriteri.backend.service.impl.video;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.teriteri.backend.mapper.VideoMapper;
 import com.teriteri.backend.mapper.VideoStatsMapper;
-import com.teriteri.backend.pojo.*;
+import com.teriteri.backend.pojo.CustomResponse;
+import com.teriteri.backend.pojo.Video;
+import com.teriteri.backend.pojo.VideoStats;
+import com.teriteri.backend.pojo.dto.VideoUploadInfoDTO;
 import com.teriteri.backend.service.utils.CurrentUser;
 import com.teriteri.backend.service.video.VideoUploadService;
 import com.teriteri.backend.utils.OssUploadUtil;
@@ -162,21 +165,21 @@ public class VideoUploadServiceImpl implements VideoUploadService {
     /**
      * 接收前端提供的视频信息，包括封面文件和稿件的其他信息，保存完封面后将信息发送到消息队列，并返回投稿成功响应
      * @param cover 封面图片文件
-     * @param videoUploadInfo 存放投稿信息的 VideoUploadInfo 对象
+     * @param videoUploadInfoDTO 存放投稿信息的 VideoUploadInfo 对象
      * @return  CustomResponse对象
      * @throws JsonProcessingException
      */
     @Override
-    public CustomResponse addVideo(MultipartFile cover, VideoUploadInfo videoUploadInfo) throws IOException {
+    public CustomResponse addVideo(MultipartFile cover, VideoUploadInfoDTO videoUploadInfoDTO) throws IOException {
         Integer loginUserId = currentUser.getUserId();
         // 值的判定 虽然前端会判 防止非法请求 不过数据库也写不进去 但会影响封面保存
-        if (videoUploadInfo.getTitle().trim().length() == 0) {
+        if (videoUploadInfoDTO.getTitle().trim().length() == 0) {
             return new CustomResponse(500, "标题不能为空", null);
         }
-        if (videoUploadInfo.getTitle().length() > 80) {
+        if (videoUploadInfoDTO.getTitle().length() > 80) {
             return new CustomResponse(500, "标题不能超过80字", null);
         }
-        if (videoUploadInfo.getDescr().length() > 2000) {
+        if (videoUploadInfoDTO.getDescr().length() > 2000) {
             return new CustomResponse(500, "简介太长啦", null);
         }
 
@@ -198,8 +201,8 @@ public class VideoUploadServiceImpl implements VideoUploadService {
         String coverUrl = ossUploadUtil.uploadImage(cover, "cover");
 
         // 将投稿信息封装
-        videoUploadInfo.setCoverUrl(coverUrl);
-        videoUploadInfo.setUid(loginUserId);
+        videoUploadInfoDTO.setCoverUrl(coverUrl);
+        videoUploadInfoDTO.setUid(loginUserId);
 
 //        mergeChunks(videoUploadInfo);   // 这里是串行操作，严重影响性能
 
@@ -212,7 +215,7 @@ public class VideoUploadServiceImpl implements VideoUploadService {
         // 使用异步线程最佳，因为监听rabbitmq的始终是单线程，高峰期会堆积阻塞
         CompletableFuture.runAsync(() -> {
             try {
-                mergeChunks(videoUploadInfo);
+                mergeChunks(videoUploadInfoDTO);
             } catch (IOException e) {
                 throw new RuntimeException(e);
             }
@@ -225,7 +228,7 @@ public class VideoUploadServiceImpl implements VideoUploadService {
      * 合并分片并将投稿信息写入数据库
      * @param vui 存放投稿信息的 VideoUploadInfo 对象
      */
-    public void mergeChunks(VideoUploadInfo vui) throws IOException {
+    public void mergeChunks(VideoUploadInfoDTO vui) throws IOException {
         String url; // 视频最终的URL
 
         // 合并到本地

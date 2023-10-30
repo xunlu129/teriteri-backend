@@ -253,7 +253,7 @@ public class RedisUtil {
      * @param key
      * @return
      */
-    public Object scard(String key) {
+    public Long scard(String key) {
         return redisTemplate.opsForSet().size(key);
     }
 

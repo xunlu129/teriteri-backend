@@ -96,4 +96,11 @@ class ApplicationTests {
         ossUploadUtil.deleteFiles("img/cover/1696");
     }
 
+    @Test
+    void test() {
+        QueryWrapper<Video> queryWrapper = new QueryWrapper<>();
+        queryWrapper.eq("vid", 10);
+        Video video = videoMapper.selectOne(queryWrapper);
+        System.out.println(video);
+    }
 }

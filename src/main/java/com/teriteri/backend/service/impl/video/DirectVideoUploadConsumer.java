@@ -2,28 +2,18 @@ package com.teriteri.backend.service.impl.video;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.teriteri.backend.mapper.VideoMapper;
-import com.teriteri.backend.mapper.VideoStatsMapper;
 import com.teriteri.backend.pojo.Video;
-import com.teriteri.backend.pojo.VideoStats;
-import com.teriteri.backend.pojo.VideoUploadInfo;
+import com.teriteri.backend.pojo.dto.VideoUploadInfoDTO;
 import com.teriteri.backend.utils.OssUploadUtil;
 import com.teriteri.backend.utils.RedisUtil;
 import lombok.extern.slf4j.Slf4j;
-import org.apache.commons.io.FileUtils;
 import org.springframework.amqp.rabbit.annotation.RabbitHandler;
-import org.springframework.amqp.rabbit.annotation.RabbitListener;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
-import java.io.File;
 import java.io.IOException;
-import java.nio.file.Paths;
-import java.util.Arrays;
-import java.util.Comparator;
 import java.util.Date;
-import java.util.List;
-import java.util.stream.Collectors;
 
 
 /**
@@ -60,7 +50,7 @@ public class DirectVideoUploadConsumer {
     public void handleMergeChunks(String jsonPayload) throws IOException {
         // 使用Jackson库将JSON字符串解析为VideoUploadInfo对象
         ObjectMapper objectMapper = new ObjectMapper();
-        VideoUploadInfo vui = objectMapper.readValue(jsonPayload, VideoUploadInfo.class);
+        VideoUploadInfoDTO vui = objectMapper.readValue(jsonPayload, VideoUploadInfoDTO.class);
         String url;
 
         // 合并到本地
