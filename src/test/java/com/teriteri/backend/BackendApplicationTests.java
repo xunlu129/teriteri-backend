@@ -20,6 +20,7 @@ import java.io.IOException;
 import java.nio.file.Paths;
 import java.sql.Connection;
 import java.sql.SQLException;
+import java.util.Set;
 
 @SpringBootTest
 class ApplicationTests {
@@ -66,6 +67,12 @@ class ApplicationTests {
     }
 
     @Test
+    void redisGetMembers() {
+        Set<Object> set = redisUtil.getMembers("video_status:0");
+        System.out.println(set);
+    }
+
+    @Test
     void ossUploadImg() throws IOException {
         QueryWrapper<Video> queryWrapper = new QueryWrapper<>();
         queryWrapper.eq("vid", 3);
@@ -89,4 +96,11 @@ class ApplicationTests {
         ossUploadUtil.deleteFiles("img/cover/1696");
     }
 
+    @Test
+    void test() {
+        QueryWrapper<Video> queryWrapper = new QueryWrapper<>();
+        queryWrapper.eq("vid", 10);
+        Video video = videoMapper.selectOne(queryWrapper);
+        System.out.println(video);
+    }
 }

@@ -19,9 +19,10 @@ public class User {
     private String password;
     private String nickname;
     private String avatar;
+    private Integer gender; // 性别，0女性 1男性 2无性别，默认2
     private String description;
     private Integer exp;    // 经验值 50/200/1500/4500/10800/28800 分别是0~6级的区间
-    private Integer state;  // 0 正常，1 封禁中
+    private Integer state;  // 0 正常，1 封禁中，2 已注销
     private Integer role;   // 0 普通用户，1 普通管理员，2 超级管理员
     @JsonFormat(pattern = "yyyy-MM-dd HH:mm", timezone = "Asia/Shanghai")
     private Date createDate;
