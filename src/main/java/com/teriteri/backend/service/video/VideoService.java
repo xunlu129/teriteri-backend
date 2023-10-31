@@ -7,4 +7,6 @@ import java.util.Set;
 public interface VideoService {
     List<Map<String, Object>> getVideosWithUserAndCategoryByIds(Set<Object> set, Integer index, Integer quantity);
 
+    Map<String, Object> getVideoWithUserAndCategoryById(Integer vid);
+
 }

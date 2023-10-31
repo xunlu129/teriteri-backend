@@ -8,10 +8,12 @@ import com.teriteri.backend.pojo.Video;
 import com.teriteri.backend.service.category.CategoryService;
 import com.teriteri.backend.service.user.UserService;
 import com.teriteri.backend.service.video.VideoService;
+import com.teriteri.backend.utils.RedisUtil;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.stereotype.Service;
 
+import java.io.IOException;
 import java.util.*;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
@@ -28,6 +30,9 @@ public class VideoServiceImpl implements VideoService {
 
     @Autowired
     private CategoryService categoryService;
+
+    @Autowired
+    private RedisUtil redisUtil;
 
     @Autowired
     @Qualifier("taskExecutor")
@@ -109,5 +114,46 @@ public class VideoServiceImpl implements VideoService {
                 .collect(Collectors.toList());
 
         return mapList;
+    }
+
+    /**
+     * 根据vid查询单个视频信息，包含用户信息和分区信息
+     * @param vid 视频ID
+     * @return 包含用户信息、分区信息、视频信息的map
+     */
+    @Override
+    public Map<String, Object> getVideoWithUserAndCategoryById(Integer vid) {
+        Map<String, Object> map = new HashMap<>();
+        // 先查询 redis
+        Video video = redisUtil.getObject("video:" + vid, Video.class);
+        if (video == null) {
+            // redis 查不到再查数据库
+            QueryWrapper<Video> queryWrapper = new QueryWrapper<>();
+            queryWrapper.eq("vid", vid).isNull("delete_date");
+            video = videoMapper.selectOne(queryWrapper);
+            if (video != null) {
+                Video finalVideo1 = video;
+                CompletableFuture.runAsync(() -> {
+                    redisUtil.setExObjectValue("video:" + vid, finalVideo1);    // 异步更新到redis
+                }, taskExecutor);
+            } else  {
+                return null;
+            }
+        }
+
+        // 多线程异步并行查询用户信息和分区信息并封装
+        Video finalVideo = video;
+        CompletableFuture<Void> userFuture = CompletableFuture.runAsync(() -> {
+            map.put("user", userService.getUserById(finalVideo.getUid()));
+        }, taskExecutor);
+        CompletableFuture<Void> categoryFuture = CompletableFuture.runAsync(() -> {
+            map.put("category", categoryService.getCategoryById(finalVideo.getMcId(), finalVideo.getScId()));
+        }, taskExecutor);
+        map.put("video", video);
+        // 使用join()等待userFuture和categoryFuture任务完成
+        userFuture.join();
+        categoryFuture.join();
+
+        return map;
     }
 }
