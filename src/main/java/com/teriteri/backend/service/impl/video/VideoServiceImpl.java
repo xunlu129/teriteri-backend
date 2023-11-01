@@ -4,10 +4,13 @@ import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
 import com.baomidou.mybatisplus.core.metadata.IPage;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.teriteri.backend.mapper.VideoMapper;
+import com.teriteri.backend.pojo.CustomResponse;
 import com.teriteri.backend.pojo.Video;
 import com.teriteri.backend.service.category.CategoryService;
 import com.teriteri.backend.service.user.UserService;
+import com.teriteri.backend.service.utils.CurrentUser;
 import com.teriteri.backend.service.video.VideoService;
+import com.teriteri.backend.utils.OssUtil;
 import com.teriteri.backend.utils.RedisUtil;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
@@ -32,7 +35,13 @@ public class VideoServiceImpl implements VideoService {
     private CategoryService categoryService;
 
     @Autowired
+    private CurrentUser currentUser;
+
+    @Autowired
     private RedisUtil redisUtil;
+
+    @Autowired
+    private OssUtil ossUtil;
 
     @Autowired
     @Qualifier("taskExecutor")
@@ -155,5 +164,120 @@ public class VideoServiceImpl implements VideoService {
         categoryFuture.join();
 
         return map;
+    }
+
+    /**
+     * 更新视频状态，包括过审、不通过、删除，其中审核相关需要管理员权限，删除可以是管理员或者投稿用户
+     * @param vid   视频ID
+     * @param status 要修改的状态，1通过 2不通过 3删除
+     * @return 无data返回，仅返回响应信息
+     */
+    @Override
+    public CustomResponse updateVideoStatus(Integer vid, Integer status) {
+        CustomResponse customResponse = new CustomResponse();
+        Integer userId = currentUser.getUserId();
+        if (status == 1 || status == 2) {
+            if (!currentUser.isAdmin()) {
+                customResponse.setCode(403);
+                customResponse.setMessage("您不是管理员，无权访问");
+                return customResponse;
+            }
+            if (status == 1) {
+                QueryWrapper<Video> queryWrapper = new QueryWrapper<>();
+                queryWrapper.eq("vid", vid).isNull("delete_date");
+                Video video = videoMapper.selectOne(queryWrapper);
+                if (video == null) {
+                    customResponse.setCode(404);
+                    customResponse.setMessage("视频不见了QAQ");
+                    return customResponse;
+                }
+                Integer lastStatus = video.getStatus();
+                video.setStatus(1);     // 更新视频状态通过审核
+                int flag = videoMapper.updateById(video);
+                if (flag > 0) {
+                    // 更新成功
+                    redisUtil.delMember("video_status:" + lastStatus, vid);     // 从旧状态移除
+                    redisUtil.addMember("video_status:1", vid);     // 加入新状态
+                    redisUtil.delValue("video:" + vid);     // 删除旧的视频信息
+                    return customResponse;
+                } else {
+                    // 更新失败，处理错误情况
+                    customResponse.setCode(500);
+                    customResponse.setMessage("更新状态失败");
+                    return customResponse;
+                }
+            }
+            else {
+                // 目前逻辑跟上面一样的，但是可能以后要做一些如 记录不通过原因 等操作，所以就分开写了
+                QueryWrapper<Video> queryWrapper = new QueryWrapper<>();
+                queryWrapper.eq("vid", vid).isNull("delete_date");
+                Video video = videoMapper.selectOne(queryWrapper);
+                if (video == null) {
+                    customResponse.setCode(404);
+                    customResponse.setMessage("视频不见了QAQ");
+                    return customResponse;
+                }
+                Integer lastStatus = video.getStatus();
+                video.setStatus(2);     // 更新视频状态不通过
+                int flag = videoMapper.updateById(video);
+                if (flag > 0) {
+                    // 更新成功
+                    redisUtil.delMember("video_status:" + lastStatus, vid);     // 从旧状态移除
+                    redisUtil.addMember("video_status:2", vid);     // 加入新状态
+                    redisUtil.delValue("video:" + vid);     // 删除旧的视频信息
+                    return customResponse;
+                } else {
+                    // 更新失败，处理错误情况
+                    customResponse.setCode(500);
+                    customResponse.setMessage("更新状态失败");
+                    return customResponse;
+                }
+            }
+        } else if (status == 3) {
+            QueryWrapper<Video> queryWrapper = new QueryWrapper<>();
+            queryWrapper.eq("vid", vid).isNull("delete_date");
+            Video video = videoMapper.selectOne(queryWrapper);
+            if (video == null) {
+                customResponse.setCode(404);
+                customResponse.setMessage("视频不见了QAQ");
+                return customResponse;
+            }
+            if (Objects.equals(userId, video.getUid()) || currentUser.isAdmin()) {
+                String videoUrl = video.getVideoUrl();
+                String videoPrefix = videoUrl.split("aliyuncs.com/")[1];  // OSS视频文件名
+                String coverUrl = video.getCoverUrl();
+                String coverPrefix = coverUrl.split("aliyuncs.com/")[1];  // OSS封面文件名
+                Integer lastStatus = video.getStatus();
+                video.setStatus(3);     // 更新视频状态已删除
+                Date now = new Date();
+                video.setDeleteDate(now);
+                int flag = videoMapper.updateById(video);
+                if (flag > 0) {
+                    // 更新成功
+                    redisUtil.delMember("video_status:" + lastStatus, vid);     // 从旧状态移除
+                    redisUtil.delValue("video:" + vid);     // 删除旧的视频信息
+                    // 搞个异步线程去删除OSS的源文件
+                    CompletableFuture.runAsync(() -> {
+                        ossUtil.deleteFiles(videoPrefix);
+                    }, taskExecutor);
+                    CompletableFuture.runAsync(() -> {
+                        ossUtil.deleteFiles(coverPrefix);
+                    }, taskExecutor);
+                    return customResponse;
+                } else {
+                    // 更新失败，处理错误情况
+                    customResponse.setCode(500);
+                    customResponse.setMessage("更新状态失败");
+                    return customResponse;
+                }
+            } else {
+                customResponse.setCode(403);
+                customResponse.setMessage("您没有权限删除视频");
+                return customResponse;
+            }
+        }
+        customResponse.setCode(500);
+        customResponse.setMessage("更新状态失败");
+        return customResponse;
     }
 }

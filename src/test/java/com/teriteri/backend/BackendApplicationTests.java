@@ -4,7 +4,7 @@ import com.alibaba.druid.pool.DruidDataSource;
 import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
 import com.teriteri.backend.mapper.VideoMapper;
 import com.teriteri.backend.pojo.Video;
-import com.teriteri.backend.utils.OssUploadUtil;
+import com.teriteri.backend.utils.OssUtil;
 import com.teriteri.backend.utils.RedisUtil;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -17,7 +17,6 @@ import javax.sql.DataSource;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.IOException;
-import java.nio.file.Paths;
 import java.sql.Connection;
 import java.sql.SQLException;
 import java.util.Set;
@@ -37,7 +36,7 @@ class ApplicationTests {
     private VideoMapper videoMapper;
 
     @Autowired
-    private OssUploadUtil ossUploadUtil;
+    private OssUtil ossUtil;
 
     @Test
     void contextLoads() throws SQLException {
@@ -82,25 +81,27 @@ class ApplicationTests {
         FileInputStream fileInputStream = new FileInputStream(file);
         MultipartFile multipartFile = new MockMultipartFile(file.getName(), file.getName(),
                 "application/sql", fileInputStream);
-        String url = ossUploadUtil.uploadImage(multipartFile, "cover");
+        String url = ossUtil.uploadImage(multipartFile, "cover");
         System.out.println(url);
     }
 
     @Test
     void ossCountFiles() {
-        System.out.println(ossUploadUtil.countFiles("img/cover/1696"));
+        System.out.println(ossUtil.countFiles("img/cover/1696"));
     }
 
     @Test
     void ossdeleteFiles() {
-        ossUploadUtil.deleteFiles("img/cover/1696");
+        ossUtil.deleteFiles("img/cover/1696");
     }
 
     @Test
     void test() {
         QueryWrapper<Video> queryWrapper = new QueryWrapper<>();
-        queryWrapper.eq("vid", 10);
+        queryWrapper.eq("vid", 1).isNull("delete_date");
         Video video = videoMapper.selectOne(queryWrapper);
-        System.out.println(video);
+        String url = video.getVideoUrl();
+        String prefix = url.split("aliyuncs.com/")[1];  // OSS文件名
+        System.out.println(prefix);
     }
 }
