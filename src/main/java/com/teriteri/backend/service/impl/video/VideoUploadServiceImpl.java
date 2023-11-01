@@ -9,7 +9,7 @@ import com.teriteri.backend.pojo.VideoStats;
 import com.teriteri.backend.pojo.dto.VideoUploadInfoDTO;
 import com.teriteri.backend.service.utils.CurrentUser;
 import com.teriteri.backend.service.video.VideoUploadService;
-import com.teriteri.backend.utils.OssUploadUtil;
+import com.teriteri.backend.utils.OssUtil;
 import com.teriteri.backend.utils.RedisUtil;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.amqp.rabbit.core.RabbitTemplate;
@@ -55,7 +55,7 @@ public class VideoUploadServiceImpl implements VideoUploadService {
     private RabbitTemplate rabbitTemplate;
 
     @Autowired
-    private OssUploadUtil ossUploadUtil;
+    private OssUtil ossUtil;
 
     @Autowired
     @Qualifier("taskExecutor")
@@ -198,7 +198,7 @@ public class VideoUploadServiceImpl implements VideoUploadService {
 //        }
 
         // 保存封面到OSS，返回URL
-        String coverUrl = ossUploadUtil.uploadImage(cover, "cover");
+        String coverUrl = ossUtil.uploadImage(cover, "cover");
 
         // 将投稿信息封装
         videoUploadInfoDTO.setCoverUrl(coverUrl);
@@ -273,7 +273,7 @@ public class VideoUploadServiceImpl implements VideoUploadService {
 //        }
 
         // 合并到OSS，并返回URL地址
-        url = ossUploadUtil.appendUploadVideo(vui.getHash());
+        url = ossUtil.appendUploadVideo(vui.getHash());
         if (url == null) {
             return;
         }

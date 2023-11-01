@@ -2,7 +2,6 @@ package com.teriteri.backend.utils;
 
 import com.aliyun.oss.ClientException;
 import com.aliyun.oss.OSS;
-import com.aliyun.oss.OSSClientBuilder;
 import com.aliyun.oss.OSSException;
 import com.aliyun.oss.model.*;
 import lombok.NonNull;
@@ -23,7 +22,7 @@ import java.util.UUID;
 
 @Slf4j
 @Component
-public class OssUploadUtil {
+public class OssUtil {
     @Value("${oss.bucket}")
     private String OSS_BUCKET;
 
@@ -221,7 +220,7 @@ public class OssUploadUtil {
                 if (objectListing.getObjectSummaries().size() > 0) {
                     List<String> keys = new ArrayList<>();
                     for (OSSObjectSummary s : objectListing.getObjectSummaries()) {
-                        System.out.println("key name: " + s.getKey());
+//                        System.out.println("key name: " + s.getKey());
                         keys.add(s.getKey());
                     }
                     DeleteObjectsRequest deleteObjectsRequest = new DeleteObjectsRequest(OSS_BUCKET).withKeys(keys).withEncodingType("url");
@@ -230,7 +229,7 @@ public class OssUploadUtil {
                     try {
                         for(String obj : deletedObjects) {
                             String deleteObj =  URLDecoder.decode(obj, "UTF-8");
-                            System.out.println(deleteObj);
+                            log.info("删除文件：" + deleteObj);
                         }
                     } catch (UnsupportedEncodingException e) {
                         e.printStackTrace();
