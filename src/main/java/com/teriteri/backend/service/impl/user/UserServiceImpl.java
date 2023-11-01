@@ -6,7 +6,11 @@ import com.teriteri.backend.pojo.dto.UserDTO;
 import com.teriteri.backend.service.user.UserService;
 import com.teriteri.backend.utils.RedisUtil;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.stereotype.Service;
+
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.Executor;
 
 @Service
 public class UserServiceImpl implements UserService {
@@ -15,6 +19,10 @@ public class UserServiceImpl implements UserService {
 
     @Autowired
     private RedisUtil redisUtil;
+
+    @Autowired
+    @Qualifier("taskExecutor")
+    private Executor taskExecutor;
 
     /**
      * 根据uid查询用户信息
@@ -31,7 +39,10 @@ public class UserServiceImpl implements UserService {
             if (user == null) {
                 return null;    // 如果uid不存在则返回空
             }
-            redisUtil.setExObjectValue("user:" + user.getUid(), user);  // 默认存活1小时
+            User finalUser = user;
+            CompletableFuture.runAsync(() -> {
+                redisUtil.setExObjectValue("user:" + finalUser.getUid(), finalUser);  // 默认存活1小时
+            }, taskExecutor);
         }
         UserDTO userDTO = new UserDTO();
         userDTO.setUid(user.getUid());

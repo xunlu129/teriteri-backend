@@ -12,6 +12,7 @@ import com.teriteri.backend.utils.JwtUtil;
 import com.teriteri.backend.utils.RedisUtil;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.security.authentication.AuthenticationProvider;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.Authentication;
@@ -19,6 +20,8 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 
 import java.util.*;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.Executor;
 import java.util.concurrent.TimeUnit;
 
 @Slf4j
@@ -44,6 +47,10 @@ public class UserAccountServiceImpl implements UserAccountService {
 
     @Autowired
     private AuthenticationProvider authenticationProvider;
+
+    @Autowired
+    @Qualifier("taskExecutor")
+    private Executor taskExecutor;
 
     /**
      * 用户注册
@@ -290,7 +297,10 @@ public class UserAccountServiceImpl implements UserAccountService {
         // 如果redis中没有user数据，就从mysql中获取并更新到redis
         if (user == null) {
             user = userMapper.selectById(LoginUserId);
-            redisUtil.setExObjectValue("user:" + user.getUid(), user);  // 默认存活1小时
+            User finalUser = user;
+            CompletableFuture.runAsync(() -> {
+                redisUtil.setExObjectValue("user:" + finalUser.getUid(), finalUser);  // 默认存活1小时
+            }, taskExecutor);
         }
         CustomResponse customResponse = new CustomResponse();
 

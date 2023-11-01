@@ -4,7 +4,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.teriteri.backend.mapper.VideoMapper;
 import com.teriteri.backend.pojo.Video;
 import com.teriteri.backend.pojo.dto.VideoUploadInfoDTO;
-import com.teriteri.backend.utils.OssUploadUtil;
+import com.teriteri.backend.utils.OssUtil;
 import com.teriteri.backend.utils.RedisUtil;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.amqp.rabbit.annotation.RabbitHandler;
@@ -36,7 +36,7 @@ public class DirectVideoUploadConsumer {
     private RedisUtil redisUtil;
 
     @Autowired
-    private OssUploadUtil ossUploadUtil;
+    private OssUtil ossUtil;
 
     @Autowired
     private VideoUploadServiceImpl videoUploadService;
@@ -95,7 +95,7 @@ public class DirectVideoUploadConsumer {
 //        }
 
         // 合并到OSS，并返回URL地址
-        url = ossUploadUtil.appendUploadVideo(vui.getHash());
+        url = ossUtil.appendUploadVideo(vui.getHash());
         if (url == null) {
             return;
         }
