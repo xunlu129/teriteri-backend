@@ -12,6 +12,7 @@ import com.teriteri.backend.service.utils.CurrentUser;
 import com.teriteri.backend.service.video.VideoService;
 import com.teriteri.backend.utils.OssUtil;
 import com.teriteri.backend.utils.RedisUtil;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.stereotype.Service;
@@ -19,10 +20,13 @@ import org.springframework.stereotype.Service;
 import java.io.IOException;
 import java.util.*;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CopyOnWriteArrayList;
+import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Executor;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
+@Slf4j
 @Service
 public class VideoServiceImpl implements VideoService {
     @Autowired
@@ -50,8 +54,8 @@ public class VideoServiceImpl implements VideoService {
     /**
      * 根据id分页获取视频信息，包括用户和分区信息
      * @param set   要查询的视频id集合
-     * @param index 分页页码
-     * @param quantity  每一页查询的数量
+     * @param index 分页页码 为空默认是1
+     * @param quantity  每一页查询的数量 为空默认是10
      * @return  包含用户信息、分区信息、视频信息的map列表
      */
     @Override
@@ -62,22 +66,67 @@ public class VideoServiceImpl implements VideoService {
         if (quantity == null) {
             quantity = 10;
         }
+        int startIndex = (index - 1) * quantity;
+        int endIndex = startIndex + quantity;
         // 检查数据是否足够满足分页查询
-        if (set.size() < (index - 1) * quantity + 1) {
+        if (startIndex > set.size()) {
             // 如果数据不足以填充当前分页，返回空列表
             return Collections.emptyList();
         }
-        // 如果集合不为空，则在数据库主键查询，并且返回没有被删除的视频
-        QueryWrapper<Video> queryWrapper = new QueryWrapper<>();
-        queryWrapper.in("vid", set);
-        queryWrapper.isNull("delete_date");
-        // 创建一个分页对象
-        Page<Video> page = new Page<>(index, quantity);
-        IPage<Video> videoPage = videoMapper.selectPage(page, queryWrapper);
-        List<Video> videoList = videoPage.getRecords();
-        if (videoList == null) return null;
+        // 以下耗时测试均是查询数据量为3的记录
+//        long start = System.currentTimeMillis();
+        List<Video> videoList = new CopyOnWriteArrayList<>();   // 使用线程安全的集合类 CopyOnWriteArrayList 保证多线程处理共享List不会出现并发问题
 
-        // 方法1
+        // 直接数据库分页查询    （平均耗时 13ms）
+        List<Object> idList = new ArrayList<>(set);
+        endIndex = Math.min(endIndex, idList.size());
+        List<Object> sublist = idList.subList(startIndex, endIndex);
+        QueryWrapper<Video> queryWrapper = new QueryWrapper<>();
+        queryWrapper.in("vid", sublist).isNull("delete_date");
+        videoList = videoMapper.selectList(queryWrapper);
+
+        // 多线程查 redis   （这个方法反而更慢了，初始 39ms，后续也平均要 13ms）
+//        List<CompletableFuture<Void>> futures = new ArrayList<>();
+//        for (Object vid : set) {
+//            CompletableFuture<Void> future = CompletableFuture.runAsync(() -> {
+//                try {
+//                    // 先查询 redis
+//                    Video video = redisUtil.getObject("video:" + vid, Video.class);
+//
+//                    if (video == null) {
+//                        // redis 查不到再查数据库
+//                        QueryWrapper<Video> queryWrapper = new QueryWrapper<>();
+//                        queryWrapper.eq("vid", vid).isNull("delete_date");
+//                        video = videoMapper.selectOne(queryWrapper);
+//                        if (video != null) {
+//                            // 存在数据就添加到返回列表
+//                            Video finalVideo = video;
+//                            CompletableFuture.runAsync(() -> {
+//                                redisUtil.setExObjectValue("video:" + vid, finalVideo);    // 异步更新到redis
+//                            }, taskExecutor);
+//                            videoList.add(video);
+//                        }
+//                    } else {
+//                        videoList.add(video);
+//                    }
+//                } catch (Exception e) {
+//                    log.error("多线程查询视频时出错了");
+//                    throw e;
+//                }
+//            }, taskExecutor);
+//            futures.add(future); // 将 CompletableFuture 添加到 List
+//        }
+//        // 等待所有 CompletableFuture 完成
+//        CompletableFuture<Void> allOf = CompletableFuture.allOf(futures.toArray(new CompletableFuture[0]));
+//        allOf.join();
+
+//        long end = System.currentTimeMillis();
+//        System.out.println("查询耗时：" + (end - start));
+        if (videoList.isEmpty()) return null;
+
+        // 封装整合
+//        start = System.currentTimeMillis();
+        // 方法1   （平均耗时 39ms）
 //        List<Map<String, Object>> mapList = new ArrayList<>();
 //        for (Video video : videoList) {
 //            Map<String, Object> map = new HashMap<>();
@@ -98,7 +147,7 @@ public class VideoServiceImpl implements VideoService {
 //            mapList.add(map);
 //        }
 
-        // 方法2 并行处理每一个视频，提高效率
+        // 方法2 并行处理每一个视频，提高效率   （初始 32ms，后续平均耗时 13ms）
         // 先将videoList转换为Stream
         Stream<Video> videoStream = videoList.stream();
         List<Map<String, Object>> mapList = videoStream.parallel() // 利用parallel()并行处理
@@ -122,6 +171,8 @@ public class VideoServiceImpl implements VideoService {
                 })
                 .collect(Collectors.toList());
 
+//        end = System.currentTimeMillis();
+//        System.out.println("封装耗时：" + (end - start));
         return mapList;
     }
 
@@ -256,6 +307,12 @@ public class VideoServiceImpl implements VideoService {
                     // 更新成功
                     redisUtil.delMember("video_status:" + lastStatus, vid);     // 从旧状态移除
                     redisUtil.delValue("video:" + vid);     // 删除旧的视频信息
+                    redisUtil.delValue("video:" + vid + ":play");
+                    redisUtil.delValue("video:" + vid + ":danmu");
+                    redisUtil.delValue("video:" + vid + ":good");
+                    redisUtil.delValue("video:" + vid + ":bad");
+                    redisUtil.delValue("video:" + vid + ":coin");
+                    redisUtil.delValue("video:" + vid + ":collect");
                     // 搞个异步线程去删除OSS的源文件
                     CompletableFuture.runAsync(() -> {
                         ossUtil.deleteFiles(videoPrefix);

@@ -298,16 +298,16 @@ public class VideoUploadServiceImpl implements VideoUploadService {
                 null
         );
         videoMapper.insert(video);
-        updateVideoStatsToRedis(video);
+        addVideoStatsToRedis(video);
 
         // 其他逻辑 （发送消息通知写库成功）
     }
 
     /**
-     * 启用多线程将视频统计数据更新到redis
+     * 启用多线程将新视频统计数据添加到redis
      * @param video
      */
-    public void updateVideoStatsToRedis(Video video) {
+    public void addVideoStatsToRedis(Video video) {
         // 使用多线程并行速度提升50%，尽管串行耗时只有122ms，并行耗时60ms
 //        long start = System.currentTimeMillis();
         // 提交每个操作以供并行执行

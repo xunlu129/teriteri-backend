@@ -53,16 +53,12 @@ class ApplicationTests {
 
     @Test
     void redis() {
-
-        // redisTemplate 操作不同的数据类型
-        redisTemplate.opsForValue().set("name", "xunlu");
-        System.out.println(redisTemplate.opsForValue().get("name"));
-
-        // 获取 redis 的连接对象
-//        RedisConnection connection = redisTemplate.getConnectionFactory().getConnection();
-//        connection.flushDb();
-//        connection.close();
-
+        redisUtil.delValue("video:3:play");
+        redisUtil.delValue("video:3:danmu");
+        redisUtil.delValue("video:3:good");
+        redisUtil.delValue("video:3:bad");
+        redisUtil.delValue("video:3:coin");
+        redisUtil.delValue("video:3:collect");
     }
 
     @Test
