@@ -94,7 +94,8 @@ public class SecurityConfig {
                         .antMatchers("/user/account/register",
                                 "/user/account/login",
                                 "/admin/account/login",
-                                "/category/getall").permitAll()
+                                "/category/getall",
+                                "/video/random/visitor").permitAll()
                         // 允许HTTP OPTIONS请求
                         .antMatchers(HttpMethod.OPTIONS).permitAll()
                         // 其他地址的访问均需验证权限

@@ -4,6 +4,8 @@ import com.alibaba.druid.pool.DruidDataSource;
 import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
 import com.teriteri.backend.mapper.VideoMapper;
 import com.teriteri.backend.pojo.Video;
+import com.teriteri.backend.pojo.VideoStats;
+import com.teriteri.backend.service.video.VideoStatsService;
 import com.teriteri.backend.utils.OssUtil;
 import com.teriteri.backend.utils.RedisUtil;
 import org.junit.jupiter.api.Test;
@@ -19,6 +21,8 @@ import java.io.FileInputStream;
 import java.io.IOException;
 import java.sql.Connection;
 import java.sql.SQLException;
+import java.util.HashSet;
+import java.util.List;
 import java.util.Set;
 
 @SpringBootTest
@@ -36,6 +40,9 @@ class ApplicationTests {
     private VideoMapper videoMapper;
 
     @Autowired
+    private VideoStatsService videoStatsService;
+
+    @Autowired
     private OssUtil ossUtil;
 
     @Test
@@ -45,20 +52,18 @@ class ApplicationTests {
         Connection connection =  dataSource.getConnection();
         System.out.println(connection);
         DruidDataSource druidDataSource = (DruidDataSource) dataSource;
+        System.out.println("druidDataSource 数据源最小空闲连接数：" + druidDataSource.getMinIdle());
         System.out.println("druidDataSource 数据源最大连接数：" + druidDataSource.getMaxActive());
         System.out.println("druidDataSource 数据源初始化连接数：" + druidDataSource.getInitialSize());
+        System.out.println("druidDataSource 空闲连接最小生存时间：" + druidDataSource.getMinEvictableIdleTimeMillis());
+        System.out.println("druidDataSource 定时检查空闲连接的间隔：" + druidDataSource.getTimeBetweenEvictionRunsMillis());
         //关闭连接
         connection.close();
     }
 
     @Test
     void redis() {
-        redisUtil.delValue("video:3:play");
-        redisUtil.delValue("video:3:danmu");
-        redisUtil.delValue("video:3:good");
-        redisUtil.delValue("video:3:bad");
-        redisUtil.delValue("video:3:coin");
-        redisUtil.delValue("video:3:collect");
+        redisUtil.setValue("video:1:share", 0);
     }
 
     @Test
@@ -93,11 +98,7 @@ class ApplicationTests {
 
     @Test
     void test() {
-        QueryWrapper<Video> queryWrapper = new QueryWrapper<>();
-        queryWrapper.eq("vid", 1).isNull("delete_date");
-        Video video = videoMapper.selectOne(queryWrapper);
-        String url = video.getVideoUrl();
-        String prefix = url.split("aliyuncs.com/")[1];  // OSS文件名
-        System.out.println(prefix);
+        VideoStats videoStats = videoStatsService.getVideoStatsById(1);
+        System.out.println(videoStats);
     }
 }

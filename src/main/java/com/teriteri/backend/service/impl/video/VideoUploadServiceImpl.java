@@ -311,7 +311,7 @@ public class VideoUploadServiceImpl implements VideoUploadService {
         // 使用多线程并行速度提升50%，尽管串行耗时只有122ms，并行耗时60ms
 //        long start = System.currentTimeMillis();
         // 提交每个操作以供并行执行
-        Future<?>[] futures = new Future<?>[9];
+        Future<?>[] futures = new Future<?>[10];
         futures[0] = CompletableFuture.runAsync(() -> videoStatsMapper.insert(new VideoStats(video.getVid(),0,0,0,0,0,0,0)), taskExecutor);
         futures[1] = CompletableFuture.runAsync(() -> redisUtil.setExObjectValue("video:" + video.getVid(), video), taskExecutor);
         futures[2] = CompletableFuture.runAsync(() -> redisUtil.addMember("video_status:0", video.getVid()), taskExecutor);
@@ -321,6 +321,7 @@ public class VideoUploadServiceImpl implements VideoUploadService {
         futures[6] = CompletableFuture.runAsync(() -> redisUtil.setValue("video:" + video.getVid() + ":bad", 0), taskExecutor);
         futures[7] = CompletableFuture.runAsync(() -> redisUtil.setValue("video:" + video.getVid() + ":coin", 0), taskExecutor);
         futures[8] = CompletableFuture.runAsync(() -> redisUtil.setValue("video:" + video.getVid() + ":collect", 0), taskExecutor);
+        futures[9] = CompletableFuture.runAsync(() -> redisUtil.setValue("video:" + video.getVid() + ":share", 0), taskExecutor);
         // 等待所有操作完成
         for (Future<?> future : futures) {
             try {

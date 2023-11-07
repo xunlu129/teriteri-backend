@@ -1,8 +1,6 @@
 package com.teriteri.backend.service.impl.video;
 
 import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
-import com.baomidou.mybatisplus.core.metadata.IPage;
-import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.teriteri.backend.mapper.VideoMapper;
 import com.teriteri.backend.pojo.CustomResponse;
 import com.teriteri.backend.pojo.Video;
@@ -10,6 +8,7 @@ import com.teriteri.backend.service.category.CategoryService;
 import com.teriteri.backend.service.user.UserService;
 import com.teriteri.backend.service.utils.CurrentUser;
 import com.teriteri.backend.service.video.VideoService;
+import com.teriteri.backend.service.video.VideoStatsService;
 import com.teriteri.backend.utils.OssUtil;
 import com.teriteri.backend.utils.RedisUtil;
 import lombok.extern.slf4j.Slf4j;
@@ -39,6 +38,9 @@ public class VideoServiceImpl implements VideoService {
     private CategoryService categoryService;
 
     @Autowired
+    private VideoStatsService videoStatsService;
+
+    @Autowired
     private CurrentUser currentUser;
 
     @Autowired
@@ -59,7 +61,7 @@ public class VideoServiceImpl implements VideoService {
      * @return  包含用户信息、分区信息、视频信息的map列表
      */
     @Override
-    public List<Map<String, Object>> getVideosWithUserAndCategoryByIds(Set<Object> set, Integer index, Integer quantity) {
+    public List<Map<String, Object>> getVideosWithDataByIds(Set<Object> set, Integer index, Integer quantity) {
         if (index == null) {
             index = 1;
         }
@@ -136,12 +138,17 @@ public class VideoServiceImpl implements VideoService {
 //                map.put("user", userService.getUserById(video.getUid()));
 //            }, taskExecutor);
 //
+//            CompletableFuture<Void> statsFuture = CompletableFuture.runAsync(() -> {
+//                map.put("stats", videoStatsService.getVideoStatsById(video.getVid()));
+//            }, taskExecutor);
+//
 //            CompletableFuture<Void> categoryFuture = CompletableFuture.runAsync(() -> {
 //                map.put("category", categoryService.getCategoryById(video.getMcId(), video.getScId()));
 //            }, taskExecutor);
 //
 //            // 等待 userFuture 和 categoryFuture 完成
 //            userFuture.join();
+//            statsFuture.join();
 //            categoryFuture.join();
 //
 //            mapList.add(map);
@@ -159,12 +166,17 @@ public class VideoServiceImpl implements VideoService {
                         map.put("user", userService.getUserById(video.getUid()));
                     }, taskExecutor);
 
+                    CompletableFuture<Void> statsFuture = CompletableFuture.runAsync(() -> {
+                        map.put("stats", videoStatsService.getVideoStatsById(video.getVid()));
+                    }, taskExecutor);
+
                     CompletableFuture<Void> categoryFuture = CompletableFuture.runAsync(() -> {
                         map.put("category", categoryService.getCategoryById(video.getMcId(), video.getScId()));
                     }, taskExecutor);
 
-                    // 使用join()等待userFuture和categoryFuture任务完成
+                    // 使用join()等待全部任务完成
                     userFuture.join();
+                    statsFuture.join();
                     categoryFuture.join();
 
                     return map;
@@ -182,7 +194,7 @@ public class VideoServiceImpl implements VideoService {
      * @return 包含用户信息、分区信息、视频信息的map
      */
     @Override
-    public Map<String, Object> getVideoWithUserAndCategoryById(Integer vid) {
+    public Map<String, Object> getVideoWithDataById(Integer vid) {
         Map<String, Object> map = new HashMap<>();
         // 先查询 redis
         Video video = redisUtil.getObject("video:" + vid, Video.class);
@@ -206,12 +218,16 @@ public class VideoServiceImpl implements VideoService {
         CompletableFuture<Void> userFuture = CompletableFuture.runAsync(() -> {
             map.put("user", userService.getUserById(finalVideo.getUid()));
         }, taskExecutor);
+        CompletableFuture<Void> statsFuture = CompletableFuture.runAsync(() -> {
+            map.put("stats", videoStatsService.getVideoStatsById(finalVideo.getVid()));
+        }, taskExecutor);
         CompletableFuture<Void> categoryFuture = CompletableFuture.runAsync(() -> {
             map.put("category", categoryService.getCategoryById(finalVideo.getMcId(), finalVideo.getScId()));
         }, taskExecutor);
         map.put("video", video);
         // 使用join()等待userFuture和categoryFuture任务完成
         userFuture.join();
+        statsFuture.join();
         categoryFuture.join();
 
         return map;
@@ -313,6 +329,7 @@ public class VideoServiceImpl implements VideoService {
                     redisUtil.delValue("video:" + vid + ":bad");
                     redisUtil.delValue("video:" + vid + ":coin");
                     redisUtil.delValue("video:" + vid + ":collect");
+                    redisUtil.delValue("video:" + vid + ":share");
                     // 搞个异步线程去删除OSS的源文件
                     CompletableFuture.runAsync(() -> {
                         ossUtil.deleteFiles(videoPrefix);
