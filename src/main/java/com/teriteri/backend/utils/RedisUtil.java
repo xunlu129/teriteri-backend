@@ -258,12 +258,13 @@ public class RedisUtil {
     }
 
     /**
-     * 获取SET中的所有对象
+     * 随机返回集合中count个元素的集合
      * @param key
+     * @param count
      * @return
      */
-    public Set<String> smembers(String key) {
-        return redisTemplate.opsForSet().members(key);
+    public Set<Object> srandmember(String key, Integer count) {
+        return redisTemplate.opsForSet().distinctRandomMembers(key, count);
     }
 
     // SET 相关操作 end -------------------------------------------------------------------------------------------------

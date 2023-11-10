@@ -80,7 +80,7 @@ public class VideoReviewServiceImpl implements VideoReviewService {
         Set<Object> set = redisUtil.getMembers("video_status:" + status);
         if (set != null && set.size() != 0) {
             // 如果集合不为空，则在数据库主键查询，并且返回没有被删除的视频
-            List<Map<String, Object>> mapList = videoService.getVideosWithUserAndCategoryByIds(set, page, quantity);
+            List<Map<String, Object>> mapList = videoService.getVideosWithDataByIds(set, page, quantity);
             customResponse.setData(mapList);
         }
         return customResponse;
