@@ -96,7 +96,8 @@ public class SecurityConfig {
                                 "/admin/account/login",
                                 "/category/getall",
                                 "/video/random/visitor",
-                                "/video/cumulative/visitor").permitAll()
+                                "/video/cumulative/visitor",
+                                "/video/getone").permitAll()
                         // 允许HTTP OPTIONS请求
                         .antMatchers(HttpMethod.OPTIONS).permitAll()
                         // 其他地址的访问均需验证权限
