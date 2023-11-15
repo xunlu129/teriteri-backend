@@ -120,6 +120,7 @@ public class UserAccountServiceImpl implements UserAccountService {
         }
         String encodedPassword = passwordEncoder.encode(password);  // 密文存储
         String avatar_url = "https://cube.elemecdn.com/9/c2/f0ee8a3c7c9638a54940382568c9dpng.png";
+        String bg_url = "https://tinypic.host/images/2023/11/15/69PB2Q5W9D2U7L.png";
         Date now = new Date();
         User new_user = new User(
                 null,
@@ -127,8 +128,10 @@ public class UserAccountServiceImpl implements UserAccountService {
                 encodedPassword,
                 "用户_" + new_user_uid,
                 avatar_url,
+                bg_url,
                 2,
                 "这个人很懒，什么都没留下~",
+                0,
                 0,
                 0,
                 0,
@@ -192,10 +195,12 @@ public class UserAccountServiceImpl implements UserAccountService {
         userDTO.setUid(user.getUid());
         userDTO.setNickname(user.getNickname());
         userDTO.setAvatar_url(user.getAvatar());
+        userDTO.setBg_url(user.getBackground());
         userDTO.setGender(user.getGender());
         userDTO.setDescription(user.getDescription());
         userDTO.setExp(user.getExp());
         userDTO.setState(user.getState());
+        userDTO.setAuth(user.getAuth());
 
         Map<String, Object> final_map = new HashMap<>();
         final_map.put("token", token);
@@ -246,10 +251,12 @@ public class UserAccountServiceImpl implements UserAccountService {
         userDTO.setUid(user.getUid());
         userDTO.setNickname(user.getNickname());
         userDTO.setAvatar_url(user.getAvatar());
+        userDTO.setBg_url(user.getBackground());
         userDTO.setGender(user.getGender());
         userDTO.setDescription(user.getDescription());
         userDTO.setExp(user.getExp());
         userDTO.setState(user.getState());
+        userDTO.setAuth(user.getAuth());
 
         Map<String, Object> final_map = new HashMap<>();
         final_map.put("token", token);
@@ -325,10 +332,12 @@ public class UserAccountServiceImpl implements UserAccountService {
         userDTO.setUid(user.getUid());
         userDTO.setNickname(user.getNickname());
         userDTO.setAvatar_url(user.getAvatar());
+        userDTO.setBg_url(user.getBackground());
         userDTO.setGender(user.getGender());
         userDTO.setDescription(user.getDescription());
         userDTO.setExp(user.getExp());
         userDTO.setState(user.getState());
+        userDTO.setAuth(user.getAuth());
         customResponse.setData(userDTO);
         return customResponse;
     }

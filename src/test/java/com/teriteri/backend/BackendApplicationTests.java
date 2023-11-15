@@ -63,7 +63,9 @@ class ApplicationTests {
 
     @Test
     void redis() {
-        redisUtil.setValue("video:1:share", 0);
+        for (int i = 1; i <= 9; i++) {
+            redisUtil.delValue("user:" + i);
+        }
     }
 
     @Test
