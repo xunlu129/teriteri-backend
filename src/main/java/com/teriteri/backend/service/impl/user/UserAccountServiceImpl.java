@@ -135,6 +135,8 @@ public class UserAccountServiceImpl implements UserAccountService {
                 0,
                 0,
                 0,
+                0,
+                null,
                 now,
                 null
         );
@@ -199,8 +201,10 @@ public class UserAccountServiceImpl implements UserAccountService {
         userDTO.setGender(user.getGender());
         userDTO.setDescription(user.getDescription());
         userDTO.setExp(user.getExp());
+        userDTO.setVip(user.getVip());
         userDTO.setState(user.getState());
         userDTO.setAuth(user.getAuth());
+        userDTO.setAuthMsg(user.getAuthMsg());
 
         Map<String, Object> final_map = new HashMap<>();
         final_map.put("token", token);
@@ -255,8 +259,10 @@ public class UserAccountServiceImpl implements UserAccountService {
         userDTO.setGender(user.getGender());
         userDTO.setDescription(user.getDescription());
         userDTO.setExp(user.getExp());
+        userDTO.setVip(user.getVip());
         userDTO.setState(user.getState());
         userDTO.setAuth(user.getAuth());
+        userDTO.setAuthMsg(user.getAuthMsg());
 
         Map<String, Object> final_map = new HashMap<>();
         final_map.put("token", token);
@@ -336,8 +342,10 @@ public class UserAccountServiceImpl implements UserAccountService {
         userDTO.setGender(user.getGender());
         userDTO.setDescription(user.getDescription());
         userDTO.setExp(user.getExp());
+        userDTO.setVip(user.getVip());
         userDTO.setState(user.getState());
         userDTO.setAuth(user.getAuth());
+        userDTO.setAuthMsg(user.getAuthMsg());
         customResponse.setData(userDTO);
         return customResponse;
     }
