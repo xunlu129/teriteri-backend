@@ -50,13 +50,21 @@ public class UserServiceImpl implements UserService {
         if (user.getDeleteDate() != null) {
             userDTO.setNickname("用户已注销");
             userDTO.setAvatar_url("https://cube.elemecdn.com/9/c2/f0ee8a3c7c9638a54940382568c9dpng.png");
+            userDTO.setBg_url("https://tinypic.host/images/2023/11/15/69PB2Q5W9D2U7L.png");
+            userDTO.setExp(0);
+            userDTO.setVip(0);
+            userDTO.setAuth(0);
             return userDTO;
         }
         userDTO.setNickname(user.getNickname());
         userDTO.setAvatar_url(user.getAvatar());
+        userDTO.setBg_url(user.getBackground());
         userDTO.setGender(user.getGender());
         userDTO.setDescription(user.getDescription());
         userDTO.setExp(user.getExp());
+        userDTO.setVip(user.getVip());
+        userDTO.setAuth(user.getAuth());
+        userDTO.setAuthMsg(user.getAuthMsg());
         return userDTO;
     }
 }

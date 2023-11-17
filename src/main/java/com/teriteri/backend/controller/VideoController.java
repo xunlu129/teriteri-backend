@@ -1,6 +1,7 @@
 package com.teriteri.backend.controller;
 
 import com.teriteri.backend.pojo.CustomResponse;
+import com.teriteri.backend.pojo.Video;
 import com.teriteri.backend.service.video.VideoService;
 import com.teriteri.backend.utils.RedisUtil;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -89,6 +90,25 @@ public class VideoController {
             map.put("more", true);
         } else {
             map.put("more", false);
+        }
+        customResponse.setData(map);
+        return customResponse;
+    }
+
+    @GetMapping("/video/getone")
+    public CustomResponse getOneVideo(@RequestParam("vid") Integer vid) {
+        CustomResponse customResponse = new CustomResponse();
+        Map<String, Object> map = videoService.getVideoWithDataById(vid);
+        if (map == null) {
+            customResponse.setCode(404);
+            customResponse.setMessage("特丽丽没找到个视频QAQ");
+            return customResponse;
+        }
+        Video video = (Video) map.get("video");
+        if (video.getStatus() != 1) {
+            customResponse.setCode(404);
+            customResponse.setMessage("特丽丽没找到个视频QAQ");
+            return customResponse;
         }
         customResponse.setData(map);
         return customResponse;

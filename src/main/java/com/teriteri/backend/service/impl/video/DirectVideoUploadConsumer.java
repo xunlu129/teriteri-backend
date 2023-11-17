@@ -120,7 +120,7 @@ public class DirectVideoUploadConsumer {
                 null
         );
         videoMapper.insert(video);
-        videoUploadService.addVideoStatsToRedis(video);
+        videoUploadService.addVideoStats(video);
 
         // 其他逻辑 （发送消息通知写库成功）
     }

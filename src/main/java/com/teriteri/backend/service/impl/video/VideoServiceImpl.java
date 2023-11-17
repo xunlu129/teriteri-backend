@@ -323,13 +323,6 @@ public class VideoServiceImpl implements VideoService {
                     // 更新成功
                     redisUtil.delMember("video_status:" + lastStatus, vid);     // 从旧状态移除
                     redisUtil.delValue("video:" + vid);     // 删除旧的视频信息
-                    redisUtil.delValue("video:" + vid + ":play");
-                    redisUtil.delValue("video:" + vid + ":danmu");
-                    redisUtil.delValue("video:" + vid + ":good");
-                    redisUtil.delValue("video:" + vid + ":bad");
-                    redisUtil.delValue("video:" + vid + ":coin");
-                    redisUtil.delValue("video:" + vid + ":collect");
-                    redisUtil.delValue("video:" + vid + ":share");
                     // 搞个异步线程去删除OSS的源文件
                     CompletableFuture.runAsync(() -> {
                         ossUtil.deleteFiles(videoPrefix);
