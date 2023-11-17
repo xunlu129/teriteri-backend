@@ -23,10 +23,7 @@ import java.io.File;
 import java.io.IOException;
 import java.nio.file.Paths;
 import java.util.Date;
-import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.ExecutionException;
-import java.util.concurrent.Executor;
-import java.util.concurrent.Future;
+import java.util.concurrent.*;
 
 @Slf4j
 @Service
@@ -298,39 +295,21 @@ public class VideoUploadServiceImpl implements VideoUploadService {
                 null
         );
         videoMapper.insert(video);
-        addVideoStatsToRedis(video);
+        addVideoStats(video);
 
         // 其他逻辑 （发送消息通知写库成功）
     }
 
     /**
-     * 启用多线程将新视频统计数据添加到redis
+     * 启用多线程将新视频和统计数据写库并添加到redis
      * @param video
      */
-    public void addVideoStatsToRedis(Video video) {
+    public void addVideoStats(Video video) {
+        VideoStats videoStats = new VideoStats(video.getVid(),0,0,0,0,0,0,0);
         // 使用多线程并行速度提升50%，尽管串行耗时只有122ms，并行耗时60ms
-//        long start = System.currentTimeMillis();
-        // 提交每个操作以供并行执行
-        Future<?>[] futures = new Future<?>[10];
-        futures[0] = CompletableFuture.runAsync(() -> videoStatsMapper.insert(new VideoStats(video.getVid(),0,0,0,0,0,0,0)), taskExecutor);
-        futures[1] = CompletableFuture.runAsync(() -> redisUtil.setExObjectValue("video:" + video.getVid(), video), taskExecutor);
-        futures[2] = CompletableFuture.runAsync(() -> redisUtil.addMember("video_status:0", video.getVid()), taskExecutor);
-        futures[3] = CompletableFuture.runAsync(() -> redisUtil.setValue("video:" + video.getVid() + ":play", 0), taskExecutor);
-        futures[4] = CompletableFuture.runAsync(() -> redisUtil.setValue("video:" + video.getVid() + ":danmu", 0), taskExecutor);
-        futures[5] = CompletableFuture.runAsync(() -> redisUtil.setValue("video:" + video.getVid() + ":good", 0), taskExecutor);
-        futures[6] = CompletableFuture.runAsync(() -> redisUtil.setValue("video:" + video.getVid() + ":bad", 0), taskExecutor);
-        futures[7] = CompletableFuture.runAsync(() -> redisUtil.setValue("video:" + video.getVid() + ":coin", 0), taskExecutor);
-        futures[8] = CompletableFuture.runAsync(() -> redisUtil.setValue("video:" + video.getVid() + ":collect", 0), taskExecutor);
-        futures[9] = CompletableFuture.runAsync(() -> redisUtil.setValue("video:" + video.getVid() + ":share", 0), taskExecutor);
-        // 等待所有操作完成
-        for (Future<?> future : futures) {
-            try {
-                future.get();
-            } catch (InterruptedException | ExecutionException e) {
-                // 处理异常
-            }
-        }
-//        long end = System.currentTimeMillis();
-//        System.out.println("并行耗时：" + (end-start));
+        CompletableFuture.runAsync(() -> videoStatsMapper.insert(videoStats), taskExecutor);
+        CompletableFuture.runAsync(() -> redisUtil.setExObjectValue("video:" + video.getVid(), video), taskExecutor);
+        CompletableFuture.runAsync(() -> redisUtil.addMember("video_status:0", video.getVid()), taskExecutor);
+        CompletableFuture.runAsync(() -> redisUtil.setExObjectValue("videoStats:" + video.getVid(), videoStats), taskExecutor);
     }
 }

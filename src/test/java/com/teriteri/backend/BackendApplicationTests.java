@@ -63,8 +63,21 @@ class ApplicationTests {
 
     @Test
     void redis() {
-        for (int i = 1; i <= 9; i++) {
+        for (int i = 1; i <= 10; i++) {
             redisUtil.delValue("user:" + i);
+        }
+    }
+
+    @Test
+    void redis2() {
+        for (int i = 1; i <= 20; i++) {
+            redisUtil.delValue("video:" + i + "play");
+            redisUtil.delValue("video:" + i + "danmu");
+            redisUtil.delValue("video:" + i + "good");
+            redisUtil.delValue("video:" + i + "bad");
+            redisUtil.delValue("video:" + i + "coin");
+            redisUtil.delValue("video:" + i + "collect");
+            redisUtil.delValue("video:" + i + "share");
         }
     }
 
