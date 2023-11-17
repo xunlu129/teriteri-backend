@@ -38,7 +38,7 @@ public class VideoStatsServiceImpl implements VideoStatsService {
             if (videoStats != null) {
                 VideoStats finalVideoStats = videoStats;
                 CompletableFuture.runAsync(() -> {
-                    redisUtil.setExObjectValue("videoStats:" + vid, finalVideoStats, 5, TimeUnit.MINUTES);    // 异步更新到redis, 存活5分钟
+                    redisUtil.setExObjectValue("videoStats:" + vid, finalVideoStats);    // 异步更新到redis
                 }, taskExecutor);
             } else {
                 return null;
