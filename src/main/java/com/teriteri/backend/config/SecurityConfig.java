@@ -97,7 +97,9 @@ public class SecurityConfig {
                                 "/category/getall",
                                 "/video/random/visitor",
                                 "/video/cumulative/visitor",
-                                "/video/getone").permitAll()
+                                "/video/getone",
+                                "/ws/danmu/**",
+                                "/danmu-list/**").permitAll()
                         // 允许HTTP OPTIONS请求
                         .antMatchers(HttpMethod.OPTIONS).permitAll()
                         // 其他地址的访问均需验证权限
