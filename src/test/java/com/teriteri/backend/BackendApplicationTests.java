@@ -70,14 +70,14 @@ class ApplicationTests {
 
     @Test
     void redis2() {
-        for (int i = 1; i <= 20; i++) {
-            redisUtil.delValue("video:" + i + "play");
-            redisUtil.delValue("video:" + i + "danmu");
-            redisUtil.delValue("video:" + i + "good");
-            redisUtil.delValue("video:" + i + "bad");
-            redisUtil.delValue("video:" + i + "coin");
-            redisUtil.delValue("video:" + i + "collect");
-            redisUtil.delValue("video:" + i + "share");
+        for (int i = 21; i <= 23; i++) {
+            redisUtil.delValue("video:" + i + ":play");
+            redisUtil.delValue("video:" + i + ":danmu");
+            redisUtil.delValue("video:" + i + ":good");
+            redisUtil.delValue("video:" + i + ":bad");
+            redisUtil.delValue("video:" + i + ":coin");
+            redisUtil.delValue("video:" + i + ":collect");
+            redisUtil.delValue("video:" + i + ":share");
         }
     }
 
