@@ -141,13 +141,12 @@ public class RedisUtil {
     /**
      * 查看匹配数目
      * @param key
-     * @param expireSec 过期时间 单位是秒
+     * @param min   起始分数
+     * @param max   结束分数
      * @return
      */
-    public long zCount(String key, long expireSec){
-        long now = System.currentTimeMillis();
-        long tts = now - expireSec * 1000;
-        return redisTemplate.opsForZSet().count(key, tts+1, Long.MAX_VALUE);
+    public long zCount(String key, long min, long max){
+        return redisTemplate.opsForZSet().count(key, min, max);
     }
 
     /**
