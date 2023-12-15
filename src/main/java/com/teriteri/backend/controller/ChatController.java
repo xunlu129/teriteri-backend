@@ -87,4 +87,23 @@ public class ChatController {
         chatService.delChat(from, to);
         return customResponse;
     }
+
+    /**
+     * 切换窗口时 更新在线状态以及清除未读
+     * @param from  对方UID
+     */
+    @GetMapping("/msg/chat/online")
+    public void updateWhisperOnline(@RequestParam("from") Integer from) {
+        Integer uid = currentUser.getUserId();
+        chatService.updateWhisperOnline(from, uid);
+    }
+
+    /**
+     * 切换窗口时 更新为离开状态 （该接口要放开，无需验证token，防止token过期导致用户一直在线）
+     * @param from  对方UID
+     */
+    @GetMapping("/msg/chat/outline")
+    public void updateWhisperOutline(@RequestParam("from") Integer from, @RequestParam("to") Integer to) {
+        chatService.updateWhisperOutline(from, to);
+    }
 }

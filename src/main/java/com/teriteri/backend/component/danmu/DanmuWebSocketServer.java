@@ -139,6 +139,7 @@ public class DanmuWebSocketServer {
     public void onClose(@PathParam("vid") String vid, @PathParam("uuid") String uuid) {
         // 从缓存中移除连接记录
         videoConnectionMap.get(vid).remove(uuid);
+        if (videoConnectionMap.get(vid).size() == 0) videoConnectionMap.remove(vid);
         danmuSessionMap.remove(uuid);
         // 更新在线人数
         sendMessage(vid, "当前观看人数" + videoConnectionMap.get(vid).size());

@@ -99,7 +99,8 @@ public class SecurityConfig {
                                 "/video/cumulative/visitor",
                                 "/video/getone",
                                 "/ws/danmu/**",
-                                "/danmu-list/**").permitAll()
+                                "/danmu-list/**",
+                                "/msg/chat/outline").permitAll()
                         // 允许HTTP OPTIONS请求
                         .antMatchers(HttpMethod.OPTIONS).permitAll()
                         // 其他地址的访问均需验证权限

@@ -1,5 +1,6 @@
 package com.teriteri.backend;
 
+import com.teriteri.backend.im.IMServer;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 import org.springframework.scheduling.annotation.EnableAsync;
@@ -14,6 +15,14 @@ public class BackendApplication {
 
     public static void main(String[] args) {
         SpringApplication.run(BackendApplication.class, args);
+
+        new Thread(() -> {
+            try {
+                new IMServer().start();
+            } catch (Exception e) {
+                e.printStackTrace();
+            }
+        }).start();
     }
 
 }

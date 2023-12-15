@@ -41,8 +41,8 @@ public class ChatServiceImpl implements ChatService {
 
     /**
      * 创建聊天
-     * @param from  发消息者UID
-     * @param to    收消息者UID
+     * @param from  发消息者UID (我打开对方的聊天框即对方是发消息者)
+     * @param to    收消息者UID (我打开对方的聊天框即我是收消息者)
      * @return "已存在"/"新创建"
      */
     @Override
@@ -103,7 +103,7 @@ public class ChatServiceImpl implements ChatService {
 
     /**
      * 获取聊天列表 包含用户信息和最近一条聊天内容 每次查10个
-     * @param uid   用户ID
+     * @param uid   对方用户ID
      * @param offset    查询偏移量（最近聊天的第几个开始往后查）
      * @return  包含用户信息和最近一条聊天内容的聊天列表
      */
@@ -139,9 +139,9 @@ public class ChatServiceImpl implements ChatService {
     }
 
     /**
-     * 移除聊天
-     * @param from  发消息者UID
-     * @param to    收消息者UID
+     * 移除聊天 并清除未读
+     * @param from  发消息者UID（对方）
+     * @param to    收消息者UID（自己）
      */
     @Override
     public void delChat(Integer from, Integer to) {
@@ -151,12 +151,124 @@ public class ChatServiceImpl implements ChatService {
         if (chat == null) return;
         // 更新字段伪删除
         UpdateWrapper<Chat> updateWrapper = new UpdateWrapper<>();
-        updateWrapper.eq("user_id", from).eq("another_id", to).setSql("is_deleted = 1");
+        updateWrapper.eq("user_id", from).eq("another_id", to).setSql("is_deleted = 1").setSql("unread = 0");
         chatMapper.update(new Chat(), updateWrapper);
         try {
             redisUtil.zsetDelMember("chat_zset:" + to, chat.getId());
         } catch (Exception e) {
             log.error("redis移除聊天失败");
+        }
+    }
+
+    /**
+     * 发送消息时更新对应聊天的未读数和时间
+     * @param from  发送者ID（自己）
+     * @param to    接受者ID（对方）
+     */
+    @Override
+    public void updateChat(Integer from, Integer to) {
+        try {
+            /*
+             既然我要发消息给对方 那么 to -> from 的 chat 表数据一定是存在的 因为发消息前一定创建了聊天
+             所以只要判断 from -> to 的数据是否存在
+             */
+
+            // 创建两个线程分别处理对应数据
+            // 先更新 to -> from 的数据
+            CompletableFuture<Void> future1 = CompletableFuture.runAsync(() -> {
+                QueryWrapper<Chat> queryWrapper1 = new QueryWrapper<>();
+                queryWrapper1.eq("user_id", to).eq("another_id", from);
+                Chat chat1 = chatMapper.selectOne(queryWrapper1);
+                UpdateWrapper<Chat> updateWrapper1 = new UpdateWrapper<>();
+                updateWrapper1.eq("user_id", to)
+                        .eq("another_id", from)
+                        .set("latest_time", new Date());
+                chatMapper.update(null, updateWrapper1);
+                redisUtil.zset("chat_zset:" + from, chat1.getId());    // 添加到这个用户的最近聊天的有序集合
+            }, taskExecutor);
+
+            // 再查询 from -> to 的数据
+            CompletableFuture<Void> future2 = CompletableFuture.runAsync(() -> {
+                QueryWrapper<Chat> queryWrapper2 = new QueryWrapper<>();
+                queryWrapper2.eq("user_id", from).eq("another_id", to);
+                Chat chat2 = chatMapper.selectOne(queryWrapper2);
+
+                // 查询对方是否在窗口
+                String key = "whisper:" + to + ":" + from;  // whisper:用户自己:聊天对象 这里的用户自己就是对方本人 聊天对象就是在发消息的我自己
+                if (redisUtil.isExist(key)) {
+                    // 如果对方在窗口就不更新未读
+                    if (chat2 == null) {
+                        // 如果对方没聊过天 就创建聊天
+                        chat2 = new Chat(null, from, to, 0, 0, new Date());
+                        chatMapper.insert(chat2);
+                    } else {
+                        // 如果聊过 就只更新时间
+                        UpdateWrapper<Chat> updateWrapper2 = new UpdateWrapper<>();
+                        updateWrapper2.eq("id", chat2.getId())
+                                .set("latest_time", new Date());
+                        chatMapper.update(null, updateWrapper2);
+                    }
+                    redisUtil.zset("chat_zset:" + to, chat2.getId());    // 添加到这个用户的最近聊天的有序集合
+                } else {
+                    // 如果不在窗口就未读+1
+                    if (chat2 == null) {
+                        // 如果对方没聊过天 就创建聊天
+                        chat2 = new Chat(null, from, to, 0, 1, new Date());
+                        chatMapper.insert(chat2);
+                    } else {
+                        // 如果聊过 就更新未读和时间
+                        UpdateWrapper<Chat> updateWrapper2 = new UpdateWrapper<>();
+                        updateWrapper2.eq("id", chat2.getId())
+                                .setSql("unread = unread + 1")
+                                .set("latest_time", new Date());
+                        chatMapper.update(null, updateWrapper2);
+                    }
+                    redisUtil.zset("chat_zset:" + to, chat2.getId());    // 添加到这个用户的最近聊天的有序集合
+                }
+            }, taskExecutor);
+
+            future1.join();
+            future2.join();
+
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+    }
+
+    /**
+     * 更新窗口为在线状态，顺便清除未读
+     * @param from  发消息者UID（对方）
+     * @param to    收消息者UID（自己）
+     */
+    @Override
+    public void updateWhisperOnline(Integer from, Integer to) {
+        try {
+            String key = "whisper:" + to + ":" + from;  // whisper:用户自己:聊天对象 这里的用户自己就是对方本人 聊天对象就是在发消息的我自己
+            // 更新为在线状态
+            redisUtil.setValue(key, true);
+            // 清除未读
+            UpdateWrapper<Chat> updateWrapper = new UpdateWrapper<>();
+            updateWrapper.eq("user_id", from).eq("another_id", to).set("unread", 0);
+            chatMapper.update(null, updateWrapper);
+        } catch (Exception e) {
+            log.error("更新聊天窗口在线状态失败: " + e);
+        }
+    }
+
+    /**
+     * 更新窗口为离开状态
+     * @param from  发消息者UID（对方）
+     * @param to    收消息者UID（自己）
+     */
+    @Override
+    public void updateWhisperOutline(Integer from, Integer to) {
+        try {
+            String key = "whisper:" + to + ":" + from;  // whisper:用户自己:聊天对象 这里的用户自己就是对方本人 聊天对象就是在发消息的我自己
+            // 删除key更新为离开状态
+            redisUtil.delValue(key);
+            System.out.println("用户 " + to + " 离开 " + from + " 的窗口");
+        } catch (Exception e) {
+            log.error("更新聊天窗口在线状态失败: " + e);
         }
     }
 }
