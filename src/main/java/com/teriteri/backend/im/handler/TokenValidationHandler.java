@@ -54,6 +54,7 @@ public class TokenValidationHandler extends SimpleChannelInboundHandler<TextWebS
             } else {
                 IMServer.userChannel.get(uid).add(ctx.channel());
             }
+            redisUtil.addMember("login_member", uid);   // 将用户添加到在线用户集合
 //            System.out.println("该用户的全部连接状态：" + IMServer.userChannel.get(uid));
 //            System.out.println("当前在线人数：" + IMServer.userChannel.size());
             // 移除token验证处理器，以便以后使用无需判断
@@ -63,7 +64,7 @@ public class TokenValidationHandler extends SimpleChannelInboundHandler<TextWebS
             // 将消息传递给下一个处理器
             ctx.fireChannelRead(tx);
         } else {
-            ctx.channel().writeAndFlush(IMResponse.system("登录已过期"));
+            ctx.channel().writeAndFlush(IMResponse.error("登录已过期"));
             ctx.close();
         }
     }

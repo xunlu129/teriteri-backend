@@ -39,16 +39,16 @@ public class EventListenerService {
     /**
      * 轮询用户登录状态，将登录过期但还在在线集合的用户移出集合
      */
-    @Scheduled(fixedDelay = 1000 * 60 * 10) // 10分钟轮询一次，记得启动类加上 @EnableScheduling 注解以启动任务调度功能
-    public void updateLoginMember() {
-        Set<Object> lm = redisUtil.getMembers("login_member");
-//        System.out.println(lm);
-        for (Object id: lm) {
-            if (!redisUtil.isExist("security:user:" + id)) {
-                redisUtil.delMember("login_member", id);
-            }
-        }
-    }
+//    @Scheduled(fixedDelay = 1000 * 60 * 10) // 10分钟轮询一次，记得启动类加上 @EnableScheduling 注解以启动任务调度功能
+//    public void updateLoginMember() {
+//        Set<Object> lm = redisUtil.getMembers("login_member");
+////        System.out.println(lm);
+//        for (Object id: lm) {
+//            if (!redisUtil.isExist("security:user:" + id)) {
+//                redisUtil.delMember("login_member", id);
+//            }
+//        }
+//    }
 
     /**
      * 每天4点删除三天前未使用的分片文件

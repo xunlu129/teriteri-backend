@@ -54,6 +54,19 @@ public class RedisUtil {
     }
 
     /**
+     * 删除指定前缀的所有key
+     * @param prefix
+     */
+    public void deleteKeysWithPrefix(String prefix) {
+        // 获取以指定前缀开头的所有键
+        Set<String> keys = redisTemplate.keys(prefix + "*");
+        // 删除匹配的键
+        if (keys != null && !keys.isEmpty()) {
+            redisTemplate.delete(keys);
+        }
+    }
+
+    /**
      * 查询key是否存在
      *
      * @param redisKey

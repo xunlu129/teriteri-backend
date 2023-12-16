@@ -1,5 +1,7 @@
 package com.teriteri.backend.service.message;
 
+import com.teriteri.backend.pojo.Chat;
+
 import java.util.List;
 import java.util.Map;
 
@@ -21,6 +23,14 @@ public interface ChatService {
     List<Map<String, Object>> getChatListWithData(Integer uid, Long offset);
 
     /**
+     * 获取单个聊天
+     * @param from  发消息者UID
+     * @param to    收消息者UID
+     * @return  Chat对象
+     */
+    Chat getChat(Integer from, Integer to);
+
+    /**
      * 移除聊天 并清除未读
      * @param from  发消息者UID（对方）
      * @param to    收消息者UID（自己）
@@ -31,8 +41,9 @@ public interface ChatService {
      * 发送消息时更新对应聊天的未读数和时间
      * @param from  发送者ID（自己）
      * @param to    接受者ID（对方）
+     * @return 返回对方是否在窗口
      */
-    void updateChat(Integer from, Integer to);
+    boolean updateChat(Integer from, Integer to);
 
     /**
      * 更新窗口为在线状态，顺便清除未读

@@ -27,19 +27,13 @@ public class ChatController {
 
     /**
      * 新建一个聊天，与其他用户首次聊天时调用
-     * @param from  发消息的用户ID（对方）
-     * @param to    收消息的用户ID（本人）
+     * @param uid  对方用户ID
      * @return  CustomResponse对象 message可能值："新创建"/"已存在"/"未知用户"
      */
-    @GetMapping("/msg/chat/create/{from}/{to}")
-    public CustomResponse createChat(@PathVariable("from") Integer from, @PathVariable("to") Integer to) {
+    @GetMapping("/msg/chat/create/{uid}")
+    public CustomResponse createChat(@PathVariable("uid") Integer uid) {
        CustomResponse customResponse = new CustomResponse();
-       if (!Objects.equals(currentUser.getUserId(), to)) {
-           customResponse.setCode(403);
-           customResponse.setMessage("用户id不一致");
-           return customResponse;
-       }
-       Map<String, Object> result = chatService.createChat(from, to);
+       Map<String, Object> result = chatService.createChat(uid, currentUser.getUserId());
        if (Objects.equals(result.get("msg").toString(), "新创建")) {
            customResponse.setData(result);  // 返回新创建的聊天
        } else if (Objects.equals(result.get("msg").toString(), "未知用户")) {
@@ -72,19 +66,13 @@ public class ChatController {
 
     /**
      * 移除聊天
-     * @param from  发消息的用户ID（对方）
-     * @param to    收消息的用户ID（本人）
+     * @param uid  对方用户ID
      * @return  CustomResponse对象
      */
-    @GetMapping("/msg/chat/delete/{from}/{to}")
-    public CustomResponse deleteChat(@PathVariable("from") Integer from, @PathVariable("to") Integer to) {
+    @GetMapping("/msg/chat/delete/{uid}")
+    public CustomResponse deleteChat(@PathVariable("uid") Integer uid) {
         CustomResponse customResponse = new CustomResponse();
-        if (!Objects.equals(currentUser.getUserId(), to)) {
-            customResponse.setCode(403);
-            customResponse.setMessage("用户id不一致");
-            return customResponse;
-        }
-        chatService.delChat(from, to);
+        chatService.delChat(uid, currentUser.getUserId());
         return customResponse;
     }
 

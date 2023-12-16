@@ -2,13 +2,17 @@ package com.teriteri.backend.service.impl.message;
 
 import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
 import com.baomidou.mybatisplus.core.conditions.update.UpdateWrapper;
+import com.teriteri.backend.im.IMServer;
 import com.teriteri.backend.mapper.ChatMapper;
 import com.teriteri.backend.mapper.UserMapper;
 import com.teriteri.backend.pojo.Chat;
+import com.teriteri.backend.pojo.IMResponse;
 import com.teriteri.backend.pojo.User;
 import com.teriteri.backend.service.message.ChatService;
+import com.teriteri.backend.service.message.MsgUnreadService;
 import com.teriteri.backend.service.user.UserService;
 import com.teriteri.backend.utils.RedisUtil;
+import io.netty.channel.Channel;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
@@ -28,6 +32,9 @@ public class ChatServiceImpl implements ChatService {
 
     @Autowired
     private UserMapper userMapper;
+
+    @Autowired
+    private MsgUnreadService msgUnreadService;
 
     @Autowired
     private UserService userService;
@@ -139,6 +146,19 @@ public class ChatServiceImpl implements ChatService {
     }
 
     /**
+     * 获取单个聊天
+     * @param from  发消息者UID
+     * @param to    收消息者UID
+     * @return  Chat对象
+     */
+    @Override
+    public Chat getChat(Integer from, Integer to) {
+        QueryWrapper<Chat> queryWrapper = new QueryWrapper<>();
+        queryWrapper.eq("user_id", from).eq("another_id", to);
+        return chatMapper.selectOne(queryWrapper);
+    }
+
+    /**
      * 移除聊天 并清除未读
      * @param from  发消息者UID（对方）
      * @param to    收消息者UID（自己）
@@ -149,10 +169,31 @@ public class ChatServiceImpl implements ChatService {
         queryWrapper.eq("user_id", from).eq("another_id", to);
         Chat chat = chatMapper.selectOne(queryWrapper);
         if (chat == null) return;
-        // 更新字段伪删除
+
+        // 通知自己的全部channel 移除该聊天
+        Map<String, Object> map = new HashMap<>();
+        map.put("type", "移除");
+        map.put("id", chat.getId());
+        map.put("count", chat.getUnread());
+        Set<Channel> myChannels = IMServer.userChannel.get(to);
+        if (myChannels != null) {
+            for (Channel channel : myChannels) {
+                channel.writeAndFlush(IMResponse.message("whisper", map));
+            }
+        }
+
+        if (chat.getUnread() > 0) {
+            // 原本有未读的话 要额外做一点更新
+            // msg_unread中的whisper要减去相应数量
+            msgUnreadService. subtractWhisper(to, chat.getUnread());
+        }
+
+        // 更新字段伪删除 并清除未读
         UpdateWrapper<Chat> updateWrapper = new UpdateWrapper<>();
         updateWrapper.eq("user_id", from).eq("another_id", to).setSql("is_deleted = 1").setSql("unread = 0");
-        chatMapper.update(new Chat(), updateWrapper);
+        chatMapper.update(null, updateWrapper);
+
+        // 移出最近聊天集合
         try {
             redisUtil.zsetDelMember("chat_zset:" + to, chat.getId());
         } catch (Exception e) {
@@ -164,9 +205,13 @@ public class ChatServiceImpl implements ChatService {
      * 发送消息时更新对应聊天的未读数和时间
      * @param from  发送者ID（自己）
      * @param to    接受者ID（对方）
+     * @return 返回对方是否在窗口
      */
     @Override
-    public void updateChat(Integer from, Integer to) {
+    public boolean updateChat(Integer from, Integer to) {
+        // 查询对方是否在窗口
+        String key = "whisper:" + to + ":" + from;  // whisper:用户自己:聊天对象 这里的用户自己就是对方本人 聊天对象就是在发消息的我自己
+        boolean online = redisUtil.isExist(key);
         try {
             /*
              既然我要发消息给对方 那么 to -> from 的 chat 表数据一定是存在的 因为发消息前一定创建了聊天
@@ -193,9 +238,7 @@ public class ChatServiceImpl implements ChatService {
                 queryWrapper2.eq("user_id", from).eq("another_id", to);
                 Chat chat2 = chatMapper.selectOne(queryWrapper2);
 
-                // 查询对方是否在窗口
-                String key = "whisper:" + to + ":" + from;  // whisper:用户自己:聊天对象 这里的用户自己就是对方本人 聊天对象就是在发消息的我自己
-                if (redisUtil.isExist(key)) {
+                if (online) {
                     // 如果对方在窗口就不更新未读
                     if (chat2 == null) {
                         // 如果对方没聊过天 就创建聊天
@@ -223,6 +266,8 @@ public class ChatServiceImpl implements ChatService {
                                 .set("latest_time", new Date());
                         chatMapper.update(null, updateWrapper2);
                     }
+                    // 更新对方用户的未读消息
+                    msgUnreadService.addOneUnread(to, "whisper");
                     redisUtil.zset("chat_zset:" + to, chat2.getId());    // 添加到这个用户的最近聊天的有序集合
                 }
             }, taskExecutor);
@@ -233,6 +278,7 @@ public class ChatServiceImpl implements ChatService {
         } catch (Exception e) {
             e.printStackTrace();
         }
+        return online;
     }
 
     /**
@@ -243,13 +289,36 @@ public class ChatServiceImpl implements ChatService {
     @Override
     public void updateWhisperOnline(Integer from, Integer to) {
         try {
-            String key = "whisper:" + to + ":" + from;  // whisper:用户自己:聊天对象 这里的用户自己就是对方本人 聊天对象就是在发消息的我自己
             // 更新为在线状态
+            String key = "whisper:" + to + ":" + from;  // whisper:用户自己:聊天对象
             redisUtil.setValue(key, true);
+
             // 清除未读
+            QueryWrapper<Chat> queryWrapper = new QueryWrapper<>();
+            queryWrapper.eq("user_id", from).eq("another_id", to);
+            Chat chat = chatMapper.selectOne(queryWrapper);
+
+            if (chat.getUnread() > 0) {
+                // 原本有未读的话 要额外做一点更新
+                // 通知自己的全部channel 更新该聊天未读数为0
+                Map<String, Object> map = new HashMap<>();
+                map.put("type", "已读");
+                map.put("id", chat.getId());
+                map.put("count", chat.getUnread());
+                Set<Channel> myChannels = IMServer.userChannel.get(to);
+                if (myChannels != null) {
+                    for (Channel channel : myChannels) {
+                        channel.writeAndFlush(IMResponse.message("whisper", map));
+                    }
+                }
+                // msg_unread中的whisper要减去相应数量
+                msgUnreadService.subtractWhisper(to, chat.getUnread());
+            }
+
             UpdateWrapper<Chat> updateWrapper = new UpdateWrapper<>();
             updateWrapper.eq("user_id", from).eq("another_id", to).set("unread", 0);
             chatMapper.update(null, updateWrapper);
+
         } catch (Exception e) {
             log.error("更新聊天窗口在线状态失败: " + e);
         }
@@ -263,7 +332,7 @@ public class ChatServiceImpl implements ChatService {
     @Override
     public void updateWhisperOutline(Integer from, Integer to) {
         try {
-            String key = "whisper:" + to + ":" + from;  // whisper:用户自己:聊天对象 这里的用户自己就是对方本人 聊天对象就是在发消息的我自己
+            String key = "whisper:" + to + ":" + from;  // whisper:用户自己:聊天对象
             // 删除key更新为离开状态
             redisUtil.delValue(key);
             System.out.println("用户 " + to + " 离开 " + from + " 的窗口");
