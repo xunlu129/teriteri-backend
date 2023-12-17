@@ -374,15 +374,17 @@ public class UserAccountServiceImpl implements UserAccountService {
 
         // 断开全部该用户的channel 并从 userChannel 移除该用户
         Set<Channel> userChannels = IMServer.userChannel.get(LoginUserId);
-        for (Channel channel : userChannels) {
-            try {
-                channel.close().sync(); // 等待通道关闭完成
-            } catch (InterruptedException e) {
-                // 处理异常，如果有必要的话
-                e.printStackTrace();
+        if (userChannels != null) {
+            for (Channel channel : userChannels) {
+                try {
+                    channel.close().sync(); // 等待通道关闭完成
+                } catch (InterruptedException e) {
+                    // 处理异常，如果有必要的话
+                    e.printStackTrace();
+                }
             }
+            IMServer.userChannel.remove(LoginUserId);
         }
-        IMServer.userChannel.remove(LoginUserId);
     }
 
     /**

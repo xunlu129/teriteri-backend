@@ -8,6 +8,7 @@ import com.teriteri.backend.mapper.UserMapper;
 import com.teriteri.backend.pojo.Chat;
 import com.teriteri.backend.pojo.IMResponse;
 import com.teriteri.backend.pojo.User;
+import com.teriteri.backend.service.message.ChatDetailedService;
 import com.teriteri.backend.service.message.ChatService;
 import com.teriteri.backend.service.message.MsgUnreadService;
 import com.teriteri.backend.service.user.UserService;
@@ -40,6 +41,9 @@ public class ChatServiceImpl implements ChatService {
     private UserService userService;
 
     @Autowired
+    private ChatDetailedService chatDetailedService;
+
+    @Autowired
     private RedisUtil redisUtil;
 
     @Autowired
@@ -50,7 +54,7 @@ public class ChatServiceImpl implements ChatService {
      * 创建聊天
      * @param from  发消息者UID (我打开对方的聊天框即对方是发消息者)
      * @param to    收消息者UID (我打开对方的聊天框即我是收消息者)
-     * @return "已存在"/"新创建"
+     * @return 包含创建信息"已存在"/"新创建"/"未知用户"以及相关数据（用户资料、最近聊天等）
      */
     @Override
     public Map<String, Object> createChat(Integer from, Integer to) {
@@ -72,9 +76,12 @@ public class ChatServiceImpl implements ChatService {
                 CompletableFuture<Void> userFuture = CompletableFuture.runAsync(() -> {
                     map.put("user", userService.getUserById(finalChat.getUserId()));
                 }, taskExecutor);
-                map.put("last", "不想前进的时候就暂且停下脚步吧");
+                CompletableFuture<Void> detailFuture = CompletableFuture.runAsync(() -> {
+                    map.put("detail", chatDetailedService.getDetails(from, to, 0L, false));
+                }, taskExecutor);
                 map.put("msg", "新创建");
                 userFuture.join();
+                detailFuture.join();
                 return map;
             } else {
                 // 处于最近聊天中
@@ -101,16 +108,19 @@ public class ChatServiceImpl implements ChatService {
             CompletableFuture<Void> userFuture = CompletableFuture.runAsync(() -> {
                 map.put("user", userService.getUserById(finalChat.getUserId()));
             }, taskExecutor);
-            map.put("last", "不想前进的时候就暂且停下脚步吧");
+            CompletableFuture<Void> detailFuture = CompletableFuture.runAsync(() -> {
+                map.put("detail", chatDetailedService.getDetails(from, to, 0L, false));
+            }, taskExecutor);
             map.put("msg", "新创建");
             userFuture.join();
+            detailFuture.join();
             return map;
         }
     }
 
     /**
-     * 获取聊天列表 包含用户信息和最近一条聊天内容 每次查10个
-     * @param uid   对方用户ID
+     * 获取聊天列表 包含用户信息和最近的聊天内容 每次查10个
+     * @param uid   登录用户ID
      * @param offset    查询偏移量（最近聊天的第几个开始往后查）
      * @return  包含用户信息和最近一条聊天内容的聊天列表
      */
@@ -137,9 +147,12 @@ public class ChatServiceImpl implements ChatService {
                         map.put("user", userService.getUserById(chat.getUserId()));
                     }, taskExecutor);
 
-                    map.put("last", "不想前进的时候就暂且停下脚步吧");
+                    CompletableFuture<Void> detailFuture = CompletableFuture.runAsync(() -> {
+                        map.put("detail", chatDetailedService.getDetails(chat.getUserId(), uid, 0L, false));
+                    }, taskExecutor);
 
                     userFuture.join();
+                    detailFuture.join();
                     return map;
                 })
                 .collect(Collectors.toList());
@@ -227,6 +240,7 @@ public class ChatServiceImpl implements ChatService {
                 UpdateWrapper<Chat> updateWrapper1 = new UpdateWrapper<>();
                 updateWrapper1.eq("user_id", to)
                         .eq("another_id", from)
+                        .set("is_deleted", 0)
                         .set("latest_time", new Date());
                 chatMapper.update(null, updateWrapper1);
                 redisUtil.zset("chat_zset:" + from, chat1.getId());    // 添加到这个用户的最近聊天的有序集合
@@ -245,9 +259,10 @@ public class ChatServiceImpl implements ChatService {
                         chat2 = new Chat(null, from, to, 0, 0, new Date());
                         chatMapper.insert(chat2);
                     } else {
-                        // 如果聊过 就只更新时间
+                        // 如果聊过 就只更新时间和未移除
                         UpdateWrapper<Chat> updateWrapper2 = new UpdateWrapper<>();
                         updateWrapper2.eq("id", chat2.getId())
+                                .set("is_deleted", 0)
                                 .set("latest_time", new Date());
                         chatMapper.update(null, updateWrapper2);
                     }
@@ -259,9 +274,10 @@ public class ChatServiceImpl implements ChatService {
                         chat2 = new Chat(null, from, to, 0, 1, new Date());
                         chatMapper.insert(chat2);
                     } else {
-                        // 如果聊过 就更新未读和时间
+                        // 如果聊过 就更新未读和时间和未移除
                         UpdateWrapper<Chat> updateWrapper2 = new UpdateWrapper<>();
                         updateWrapper2.eq("id", chat2.getId())
+                                .set("is_deleted", 0)
                                 .setSql("unread = unread + 1")
                                 .set("latest_time", new Date());
                         chatMapper.update(null, updateWrapper2);
@@ -335,7 +351,6 @@ public class ChatServiceImpl implements ChatService {
             String key = "whisper:" + to + ":" + from;  // whisper:用户自己:聊天对象
             // 删除key更新为离开状态
             redisUtil.delValue(key);
-            System.out.println("用户 " + to + " 离开 " + from + " 的窗口");
         } catch (Exception e) {
             log.error("更新聊天窗口在线状态失败: " + e);
         }

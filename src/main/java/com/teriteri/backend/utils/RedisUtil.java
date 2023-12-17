@@ -2,10 +2,15 @@ package com.teriteri.backend.utils;
 
 import com.alibaba.fastjson2.JSON;
 import com.alibaba.fastjson2.JSONObject;
+import lombok.AllArgsConstructor;
+import lombok.Data;
+import lombok.NoArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.StringUtils;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.redis.core.DefaultTypedTuple;
 import org.springframework.data.redis.core.RedisTemplate;
+import org.springframework.data.redis.core.ZSetOperations;
 import org.springframework.stereotype.Component;
 
 import java.time.DayOfWeek;
@@ -14,6 +19,7 @@ import java.time.temporal.ChronoUnit;
 import java.time.temporal.TemporalAdjusters;
 import java.util.*;
 import java.util.concurrent.TimeUnit;
+import java.util.stream.Collectors;
 
 @Component
 @Slf4j
@@ -24,6 +30,15 @@ public class RedisUtil {
 
     public static final long REDIS_DEFAULT_EXPIRE_TIME = 60 * 60;
     public static final TimeUnit REDIS_DEFAULT_EXPIRE_TIMEUNIT = TimeUnit.SECONDS;
+
+    // 定义ZSetObject类，表示需要写入到ZSet中的数据
+    @Data
+    @AllArgsConstructor
+    @NoArgsConstructor
+    public static class ZSetObject {
+        private Object member;
+        private Date time;
+    }
 
     // 通用 相关操作 begin -----------------------------------------------------------------------------------------------
 
@@ -149,6 +164,22 @@ public class RedisUtil {
      */
     public boolean zsetWithScore(String key, Object object, long score){
         return redisTemplate.opsForZSet().add(key, object, score);
+    }
+
+    /**
+     * 批量存入数据到sorted set
+     * @param key
+     * @param zSetObjects   自定义的类 RedisUtil.ZSetObject 的集合或列表
+     */
+    public long zsetOfCollection(String key, Collection<ZSetObject> zSetObjects) {
+        return redisTemplate.opsForZSet().add(key, convertToTupleSet(zSetObjects));
+    }
+
+    // 将ZSetObject集合转换为Tuple集合
+    private Set<ZSetOperations.TypedTuple<Object>> convertToTupleSet(Collection<ZSetObject> zSetObjects) {
+        return zSetObjects.stream()
+                .map(zSetObject -> new DefaultTypedTuple<>(zSetObject.getMember(), (double) zSetObject.getTime().getTime()))
+                .collect(Collectors.toSet());
     }
 
     /**

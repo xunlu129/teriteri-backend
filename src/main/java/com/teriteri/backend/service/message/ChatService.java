@@ -16,7 +16,7 @@ public interface ChatService {
 
     /**
      * 获取聊天列表 包含用户信息和最近一条聊天内容 每次查10个
-     * @param uid   对方用户ID
+     * @param uid   登录用户ID
      * @param offset    查询偏移量（最近聊天的第几个开始往后查）
      * @return  包含用户信息和最近一条聊天内容的聊天列表
      */

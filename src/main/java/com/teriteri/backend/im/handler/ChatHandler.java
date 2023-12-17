@@ -8,6 +8,7 @@ import com.teriteri.backend.pojo.ChatDetailed;
 import com.teriteri.backend.pojo.IMResponse;
 import com.teriteri.backend.service.message.ChatService;
 import com.teriteri.backend.service.user.UserService;
+import com.teriteri.backend.utils.RedisUtil;
 import io.netty.channel.Channel;
 import io.netty.channel.ChannelHandlerContext;
 import io.netty.handler.codec.http.websocketx.TextWebSocketFrame;
@@ -28,16 +29,19 @@ public class ChatHandler {
     private static ChatService chatService;
     private static ChatDetailedMapper chatDetailedMapper;
     private static UserService userService;
+    private static RedisUtil redisUtil;
     private static Executor taskExecutor;
 
     @Autowired
     private void setDependencies(ChatService chatService,
                                  ChatDetailedMapper chatDetailedMapper,
                                  UserService userService,
+                                 RedisUtil redisUtil,
                                  @Qualifier("taskExecutor") Executor taskExecutor) {
         ChatHandler.chatService = chatService;
         ChatHandler.chatDetailedMapper = chatDetailedMapper;
         ChatHandler.userService = userService;
+        ChatHandler.redisUtil = redisUtil;
         ChatHandler.taskExecutor = taskExecutor;
     }
 
@@ -54,15 +58,15 @@ public class ChatHandler {
             chatDetailed.setWithdraw(0);
             chatDetailed.setTime(new Date());
             chatDetailedMapper.insert(chatDetailed);
-//            System.out.println("写库后的消息：" + chatDetailed);
+            redisUtil.zset("chat_detailed_zset:" + user_id + ":" + chatDetailed.getAnotherId(), chatDetailed.getId());
+            redisUtil.zset("chat_detailed_zset:" + chatDetailed.getAnotherId() + ":" + user_id, chatDetailed.getId());
             boolean online = chatService.updateChat(user_id, chatDetailed.getAnotherId());
 
             // 转发到发送者和接收者的全部channel
             Map<String, Object> map = new HashMap<>();
             map.put("type", "接收");
-            map.put("online", online);
+            map.put("online", online);  // 对方是否在窗口
             map.put("detail", chatDetailed);
-//            map.put("last", chatDetailed.getContent());
             CompletableFuture<Void> chatFuture = CompletableFuture.runAsync(() -> {
                 map.put("chat", chatService.getChat(user_id, chatDetailed.getAnotherId()));
             }, taskExecutor);
@@ -72,9 +76,16 @@ public class ChatHandler {
             chatFuture.join();
             userFuture.join();
 
+            // 发给自己的全部channel
+            Set<Channel> from = IMServer.userChannel.get(user_id);
+            if (from != null) {
+                for (Channel channel : from) {
+                    channel.writeAndFlush(IMResponse.message("whisper", map));
+                }
+            }
+            // 发给对方的全部channel
             Set<Channel> to = IMServer.userChannel.get(chatDetailed.getAnotherId());
             if (to != null) {
-                // 在线才发
                 for (Channel channel : to) {
                     channel.writeAndFlush(IMResponse.message("whisper", map));
                 }
@@ -86,6 +97,7 @@ public class ChatHandler {
         }
     }
 
+    // 这个逻辑还没完善 前端也还没写
     public static void withdraw(ChannelHandlerContext ctx, TextWebSocketFrame tx) {
         try {
             JSONObject jsonObject = JSONObject.parseObject(tx.text());
@@ -108,13 +120,21 @@ public class ChatHandler {
             updateWrapper.eq("id", id).setSql("withdraw = 1");
             chatDetailedMapper.update(new ChatDetailed(), updateWrapper);
 
-            // 转发到消息接受者的全部channel
+            // 转发到发送者和接收者的全部channel
             Map<String, Object> map = new HashMap<>();
             map.put("type", "撤回");
             map.put("id", id);
+
+            // 发给自己的全部channel
+            Set<Channel> from = IMServer.userChannel.get(user_id);
+            if (from != null) {
+                for (Channel channel : from) {
+                    channel.writeAndFlush(IMResponse.message("whisper", map));
+                }
+            }
+            // 发给对方的全部channel
             Set<Channel> to = IMServer.userChannel.get(chatDetailed.getAnotherId());
             if (to != null) {
-                // 在线才发
                 for (Channel channel : to) {
                     channel.writeAndFlush(IMResponse.message("whisper", map));
                 }
