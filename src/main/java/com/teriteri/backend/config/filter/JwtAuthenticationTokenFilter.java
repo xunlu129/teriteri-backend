@@ -53,7 +53,7 @@ public class JwtAuthenticationTokenFilter extends OncePerRequestFilter {
         // 解析token
         boolean verifyToken = jwtUtil.verifyToken(token);
         if (!verifyToken) {
-            log.error("当前token已过期");
+//            log.error("当前token已过期");
             response.addHeader("message", "not login"); // 设置响应头信息，给前端判断用
             response.setStatus(403);
 //            throw new AuthenticationException("当前token已过期");
@@ -66,7 +66,7 @@ public class JwtAuthenticationTokenFilter extends OncePerRequestFilter {
         User user = redisUtil.getObject("security:" + role + ":" + userId, User.class);
 
         if (user == null) {
-            log.error("用户未登录");
+//            log.error("用户未登录");
             response.addHeader("message", "not login"); // 设置响应头信息，给前端判断用
             response.setStatus(403);
 //            throw new AuthenticationException("用户未登录");

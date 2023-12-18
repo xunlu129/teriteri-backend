@@ -157,6 +157,31 @@
             <artifactId>spring-boot-starter-amqp</artifactId>
         </dependency>
 
+        <!-- netty -->
+        <dependency>
+            <groupId>io.netty</groupId>
+            <artifactId>netty-all</artifactId>
+            <version>4.1.66.Final</version>
+        </dependency>
+
+        <dependency>
+            <groupId>io.netty</groupId>
+            <artifactId>netty-handler</artifactId>
+            <version>4.1.66.Final</version>
+        </dependency>
+
+        <!--        加入ssl证书认证-->
+        <!--        <dependency>-->
+        <!--            <groupId>org.bouncycastle</groupId>-->
+        <!--            <artifactId>bcprov-jdk15on</artifactId>-->
+        <!--            <version>1.69</version> &lt;!&ndash; 使用最新版本 &ndash;&gt;-->
+        <!--        </dependency>-->
+        <!--        <dependency>-->
+        <!--            <groupId>org.bouncycastle</groupId>-->
+        <!--            <artifactId>bcpkix-jdk15on</artifactId>-->
+        <!--            <version>1.69</version> &lt;!&ndash; 使用最新版本 &ndash;&gt;-->
+        <!--        </dependency>-->
+
         <!--websocket-->
         <dependency>
             <groupId>org.springframework.boot</groupId>

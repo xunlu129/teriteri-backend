@@ -2,10 +2,15 @@ package com.teriteri.backend.utils;
 
 import com.alibaba.fastjson2.JSON;
 import com.alibaba.fastjson2.JSONObject;
+import lombok.AllArgsConstructor;
+import lombok.Data;
+import lombok.NoArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.StringUtils;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.redis.core.DefaultTypedTuple;
 import org.springframework.data.redis.core.RedisTemplate;
+import org.springframework.data.redis.core.ZSetOperations;
 import org.springframework.stereotype.Component;
 
 import java.time.DayOfWeek;
@@ -14,6 +19,7 @@ import java.time.temporal.ChronoUnit;
 import java.time.temporal.TemporalAdjusters;
 import java.util.*;
 import java.util.concurrent.TimeUnit;
+import java.util.stream.Collectors;
 
 @Component
 @Slf4j
@@ -24,6 +30,15 @@ public class RedisUtil {
 
     public static final long REDIS_DEFAULT_EXPIRE_TIME = 60 * 60;
     public static final TimeUnit REDIS_DEFAULT_EXPIRE_TIMEUNIT = TimeUnit.SECONDS;
+
+    // 定义ZSetObject类，表示需要写入到ZSet中的数据
+    @Data
+    @AllArgsConstructor
+    @NoArgsConstructor
+    public static class ZSetObject {
+        private Object member;
+        private Date time;
+    }
 
     // 通用 相关操作 begin -----------------------------------------------------------------------------------------------
 
@@ -51,6 +66,19 @@ public class RedisUtil {
      */
     public void removeCache(String key){
         redisTemplate.delete(key);
+    }
+
+    /**
+     * 删除指定前缀的所有key
+     * @param prefix
+     */
+    public void deleteKeysWithPrefix(String prefix) {
+        // 获取以指定前缀开头的所有键
+        Set<String> keys = redisTemplate.keys(prefix + "*");
+        // 删除匹配的键
+        if (keys != null && !keys.isEmpty()) {
+            redisTemplate.delete(keys);
+        }
     }
 
     /**
@@ -139,15 +167,30 @@ public class RedisUtil {
     }
 
     /**
+     * 批量存入数据到sorted set
+     * @param key
+     * @param zSetObjects   自定义的类 RedisUtil.ZSetObject 的集合或列表
+     */
+    public long zsetOfCollection(String key, Collection<ZSetObject> zSetObjects) {
+        return redisTemplate.opsForZSet().add(key, convertToTupleSet(zSetObjects));
+    }
+
+    // 将ZSetObject集合转换为Tuple集合
+    private Set<ZSetOperations.TypedTuple<Object>> convertToTupleSet(Collection<ZSetObject> zSetObjects) {
+        return zSetObjects.stream()
+                .map(zSetObject -> new DefaultTypedTuple<>(zSetObject.getMember(), (double) zSetObject.getTime().getTime()))
+                .collect(Collectors.toSet());
+    }
+
+    /**
      * 查看匹配数目
      * @param key
-     * @param expireSec 过期时间 单位是秒
+     * @param min   起始分数
+     * @param max   结束分数
      * @return
      */
-    public long zCount(String key, long expireSec){
-        long now = System.currentTimeMillis();
-        long tts = now - expireSec * 1000;
-        return redisTemplate.opsForZSet().count(key, tts+1, Long.MAX_VALUE);
+    public long zCount(String key, long min, long max){
+        return redisTemplate.opsForZSet().count(key, min, max);
     }
 
     /**

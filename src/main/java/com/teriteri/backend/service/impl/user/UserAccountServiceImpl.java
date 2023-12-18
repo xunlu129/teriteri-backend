@@ -1,8 +1,11 @@
 package com.teriteri.backend.service.impl.user;
 
 import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
+import com.teriteri.backend.im.IMServer;
+import com.teriteri.backend.mapper.MsgUnreadMapper;
 import com.teriteri.backend.mapper.UserMapper;
 import com.teriteri.backend.pojo.CustomResponse;
+import com.teriteri.backend.pojo.MsgUnread;
 import com.teriteri.backend.pojo.User;
 import com.teriteri.backend.pojo.dto.UserDTO;
 import com.teriteri.backend.service.user.UserAccountService;
@@ -10,6 +13,9 @@ import com.teriteri.backend.service.user.UserService;
 import com.teriteri.backend.service.utils.CurrentUser;
 import com.teriteri.backend.utils.JwtUtil;
 import com.teriteri.backend.utils.RedisUtil;
+import io.netty.channel.*;
+import io.netty.channel.group.ChannelGroupFutureListener;
+import io.netty.util.concurrent.PromiseCombiner;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
@@ -32,6 +38,9 @@ public class UserAccountServiceImpl implements UserAccountService {
 
     @Autowired
     private UserMapper userMapper;
+
+    @Autowired
+    private MsgUnreadMapper msgUnreadMapper;
 
     @Autowired
     private RedisUtil redisUtil;
@@ -141,6 +150,7 @@ public class UserAccountServiceImpl implements UserAccountService {
                 null
         );
         userMapper.insert(new_user);
+        msgUnreadMapper.insert(new MsgUnread(new_user.getUid(),0,0,0,0,0,0));
 
         customResponse.setMessage("注册成功！欢迎加入T站");
         return customResponse;
@@ -186,7 +196,7 @@ public class UserAccountServiceImpl implements UserAccountService {
             // 这里缓存的user信息建议只供读取uid用，其中的状态等非静态数据可能不准，所以 redis另外存值
             redisUtil.setExObjectValue("security:user:" + user.getUid(), user, 60L * 60 * 24 * 2, TimeUnit.SECONDS);
             // 将该用户放到redis中在线集合
-            redisUtil.addMember("login_member", user.getUid());
+//            redisUtil.addMember("login_member", user.getUid());
         } catch (Exception e) {
             log.error("存储redis数据失败");
             throw e;
@@ -356,10 +366,25 @@ public class UserAccountServiceImpl implements UserAccountService {
     @Override
     public void logout() {
         Integer LoginUserId = currentUser.getUserId();
-        // 清除redis中该用户的登录认证数据，不需要抛异常，有没有删掉都没关系，系统会轮询处理过期登录
+        // 清除redis中该用户的登录认证数据
         redisUtil.delValue("token:user:" + LoginUserId);
         redisUtil.delValue("security:user:" + LoginUserId);
-        redisUtil.delMember("login_member", LoginUserId);
+        redisUtil.delMember("login_member", LoginUserId);   // 从在线用户集合中移除
+        redisUtil.deleteKeysWithPrefix("whisper:" + LoginUserId + ":"); // 清除全部在聊天窗口的状态
+
+        // 断开全部该用户的channel 并从 userChannel 移除该用户
+        Set<Channel> userChannels = IMServer.userChannel.get(LoginUserId);
+        if (userChannels != null) {
+            for (Channel channel : userChannels) {
+                try {
+                    channel.close().sync(); // 等待通道关闭完成
+                } catch (InterruptedException e) {
+                    // 处理异常，如果有必要的话
+                    e.printStackTrace();
+                }
+            }
+            IMServer.userChannel.remove(LoginUserId);
+        }
     }
 
     /**
@@ -368,7 +393,7 @@ public class UserAccountServiceImpl implements UserAccountService {
     @Override
     public void adminLogout() {
         Integer LoginUserId = currentUser.getUserId();
-        // 清除redis中该用户的登录认证数据，不需要抛异常，有没有删掉都没关系，系统会轮询处理过期登录
+        // 清除redis中该用户的登录认证数据
         redisUtil.delValue("token:admin:" + LoginUserId);
         redisUtil.delValue("security:admin:" + LoginUserId);
     }

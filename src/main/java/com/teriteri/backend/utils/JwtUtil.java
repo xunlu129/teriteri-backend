@@ -88,10 +88,10 @@ public class JwtUtil {
                     .getBody();
         } catch (ExpiredJwtException eje) {
             claims = null;
-            log.error("获取token信息异常，jwt已过期");
+//            log.error("获取token信息异常，jwt已过期");
         } catch (Exception e) {
             claims = null;
-            log.error("获取token信息失败", e);
+//            log.error("获取token信息失败", e);
         }
         return claims;
     }
