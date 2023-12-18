@@ -27,7 +27,7 @@ public class ChatDetailedServiceImpl implements ChatDetailedService {
      * @return  消息列表以及是否还有更多 { list: List, more: boolean }
      */
     @Override
-    public Map<String, Object> getDetails(Integer uid, Integer aid, Long offset, boolean isDesc) {
+    public Map<String, Object> getDetails(Integer uid, Integer aid, Long offset) {
         String key = "chat_detailed_zset:" + uid + ":" + aid;
         Map<String, Object> map = new HashMap<>();
         if (offset + 20 < redisUtil.zCount(key, 0, Long.MAX_VALUE)) {
@@ -43,9 +43,6 @@ public class ChatDetailedServiceImpl implements ChatDetailedService {
         }
         QueryWrapper<ChatDetailed> queryWrapper = new QueryWrapper<>();
         queryWrapper.in("id", set);
-        if (isDesc) {
-            queryWrapper.orderByDesc("time");
-        }
         map.put("list", chatDetailedMapper.selectList(queryWrapper));
         return map;
     }

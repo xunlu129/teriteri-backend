@@ -77,7 +77,7 @@ public class ChatServiceImpl implements ChatService {
                     map.put("user", userService.getUserById(finalChat.getUserId()));
                 }, taskExecutor);
                 CompletableFuture<Void> detailFuture = CompletableFuture.runAsync(() -> {
-                    map.put("detail", chatDetailedService.getDetails(from, to, 0L, false));
+                    map.put("detail", chatDetailedService.getDetails(from, to, 0L));
                 }, taskExecutor);
                 map.put("msg", "新创建");
                 userFuture.join();
@@ -109,7 +109,7 @@ public class ChatServiceImpl implements ChatService {
                 map.put("user", userService.getUserById(finalChat.getUserId()));
             }, taskExecutor);
             CompletableFuture<Void> detailFuture = CompletableFuture.runAsync(() -> {
-                map.put("detail", chatDetailedService.getDetails(from, to, 0L, false));
+                map.put("detail", chatDetailedService.getDetails(from, to, 0L));
             }, taskExecutor);
             map.put("msg", "新创建");
             userFuture.join();
@@ -148,7 +148,7 @@ public class ChatServiceImpl implements ChatService {
                     }, taskExecutor);
 
                     CompletableFuture<Void> detailFuture = CompletableFuture.runAsync(() -> {
-                        map.put("detail", chatDetailedService.getDetails(chat.getUserId(), uid, 0L, false));
+                        map.put("detail", chatDetailedService.getDetails(chat.getUserId(), uid, 0L));
                     }, taskExecutor);
 
                     userFuture.join();
