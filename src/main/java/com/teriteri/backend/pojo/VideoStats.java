@@ -10,7 +10,7 @@ import lombok.NoArgsConstructor;
 @AllArgsConstructor
 @NoArgsConstructor
 public class VideoStats {
-    @TableId(type = IdType.AUTO)
+    @TableId
     private Integer vid;
     private Integer play;
     private Integer danmu;
