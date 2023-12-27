@@ -97,6 +97,7 @@ public class CategoryServiceImpl implements CategoryService {
         }
         // 将分类添加到redis缓存中
         try {
+            redisUtil.delValue("categoryList");
             redisUtil.setAllList("categoryList", sortedCategories);
         } catch (Exception e) {
             log.error("存储redis分类列表失败");

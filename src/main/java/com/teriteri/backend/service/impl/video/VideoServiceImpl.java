@@ -124,7 +124,7 @@ public class VideoServiceImpl implements VideoService {
 
 //        long end = System.currentTimeMillis();
 //        System.out.println("查询耗时：" + (end - start));
-        if (videoList.isEmpty()) return null;
+        if (videoList.isEmpty()) return Collections.emptyList();
 
         // 封装整合
 //        start = System.currentTimeMillis();
