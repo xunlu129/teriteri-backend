@@ -26,7 +26,7 @@ import java.util.concurrent.ConcurrentHashMap;
 
 @Slf4j
 @Component
-@ServerEndpoint(value = "/ws/danmu/{vid}/{uuid}")
+@ServerEndpoint(value = "/ws/danmu/{vid}")
 public class DanmuWebSocketServer {
 
     // 由于每个连接都不是共享一个WebSocketServer，所以要静态注入
@@ -43,28 +43,23 @@ public class DanmuWebSocketServer {
         DanmuWebSocketServer.videoStatsMapper = videoStatsMapper;
     }
 
-    // 对每个视频存储该视频下的sessionId集合
-    private static final Map<String, Set<String>> videoConnectionMap = new ConcurrentHashMap<>();
-
-    // 存储每个sessionId对应的session对象
-    private static final Map<String, Session> danmuSessionMap = new ConcurrentHashMap<>();
+    // 对每个视频存储该视频下的session集合
+    private static final Map<String, Set<Session>> videoConnectionMap = new ConcurrentHashMap<>();
 
     /**
      * 连接建立时触发，记录session到map
      * @param session 会话
      * @param vid   视频的ID
-     * @param uuid  随机uuid，由前端生成，作为每个会话的唯一标识符
      */
     @OnOpen
-    public void onOpen(Session session, @PathParam("vid") String vid, @PathParam("uuid") String uuid) {
+    public void onOpen(Session session, @PathParam("vid") String vid) {
         if (videoConnectionMap.get(vid) == null) {
-            Set<String> set = new HashSet<>();
-            set.add(uuid);
+            Set<Session> set = new HashSet<>();
+            set.add(session);
             videoConnectionMap.put(vid, set);
         } else {
-            videoConnectionMap.get(vid).add(uuid);
+            videoConnectionMap.get(vid).add(session);
         }
-        danmuSessionMap.put(uuid, session);
         sendMessage(vid, "当前观看人数" + videoConnectionMap.get(vid).size());
 //        System.out.println("建立连接，当前观看人数: " + videoConnectionMap.get(vid).size());
     }
@@ -132,13 +127,13 @@ public class DanmuWebSocketServer {
 
     /**
      * 连接关闭时执行
+     * @param session   当前会话
      * @param vid   视频ID
-     * @param uuid  随机uuid，由前端生成，作为每个会话的唯一标识符
      */
     @OnClose
-    public void onClose(@PathParam("vid") String vid, @PathParam("uuid") String uuid) {
+    public void onClose(Session session, @PathParam("vid") String vid) {
         // 从缓存中移除连接记录
-        videoConnectionMap.get(vid).remove(uuid);
+        videoConnectionMap.get(vid).remove(session);
         if (videoConnectionMap.get(vid).size() == 0) {
             // 如果没人了就直接移除这个视频
             videoConnectionMap.remove(vid);
@@ -146,7 +141,6 @@ public class DanmuWebSocketServer {
             // 否则更新在线人数
             sendMessage(vid, "当前观看人数" + videoConnectionMap.get(vid).size());
         }
-        danmuSessionMap.remove(uuid);
 //        System.out.println("关闭连接，当前观看人数: " + videoConnectionMap.get(vid).size());
     }
 
@@ -162,9 +156,8 @@ public class DanmuWebSocketServer {
      * @param text  消息内容，对象需转成JSON字符串
      */
     public void sendMessage(String vid, String text) {
-        Set<String> set = videoConnectionMap.get(vid);
-        for (String sessionId : set) {
-            Session session = danmuSessionMap.get(sessionId);
+        Set<Session> set = videoConnectionMap.get(vid);
+        for (Session session : set) {
             try {
                 session.getBasicRemote().sendText(text);
             } catch (Exception e) {
