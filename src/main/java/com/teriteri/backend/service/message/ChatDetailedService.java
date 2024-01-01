@@ -11,4 +11,12 @@ public interface ChatDetailedService {
      * @return  消息列表以及是否还有更多 { list: List, more: boolean }
      */
     Map<String, Object> getDetails(Integer uid, Integer aid, Long offset);
+
+    /**
+     * 删除单条消息记录
+     * @param id 消息记录的id
+     * @param uid   当前登录用户的UID
+     * @return  成功/失败
+     */
+    boolean deleteDetail(Integer id, Integer uid);
 }
