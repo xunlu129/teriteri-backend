@@ -45,6 +45,11 @@ public class ChatHandler {
         ChatHandler.taskExecutor = taskExecutor;
     }
 
+    /**
+     * 发送消息
+     * @param ctx
+     * @param tx
+     */
     public static void send(ChannelHandlerContext ctx, TextWebSocketFrame tx) {
         try {
             ChatDetailed chatDetailed = JSONObject.parseObject(tx.text(), ChatDetailed.class);
@@ -58,6 +63,7 @@ public class ChatHandler {
             chatDetailed.setWithdraw(0);
             chatDetailed.setTime(new Date());
             chatDetailedMapper.insert(chatDetailed);
+            // "chat_detailed_zset:对方:自己"
             redisUtil.zset("chat_detailed_zset:" + user_id + ":" + chatDetailed.getAnotherId(), chatDetailed.getId());
             redisUtil.zset("chat_detailed_zset:" + chatDetailed.getAnotherId() + ":" + user_id, chatDetailed.getId());
             boolean online = chatService.updateChat(user_id, chatDetailed.getAnotherId());
@@ -97,12 +103,15 @@ public class ChatHandler {
         }
     }
 
-    // 这个逻辑还没完善 前端也还没写
+    /**
+     * 撤回消息
+     * @param ctx
+     * @param tx
+     */
     public static void withdraw(ChannelHandlerContext ctx, TextWebSocketFrame tx) {
         try {
             JSONObject jsonObject = JSONObject.parseObject(tx.text());
             Integer id = jsonObject.getInteger("id");
-            System.out.println("要撤回的消息id：" + id);
             Integer user_id = (Integer) ctx.channel().attr(AttributeKey.valueOf("userId")).get();
 
             // 查询数据库
@@ -115,14 +124,21 @@ public class ChatHandler {
                 ctx.channel().writeAndFlush(IMResponse.error("无权撤回此消息"));
                 return;
             }
+            long diff = System.currentTimeMillis() - chatDetailed.getTime().getTime();
+            if (diff > 120000) {
+                ctx.channel().writeAndFlush(IMResponse.error("发送时间超过两分钟不能撤回"));
+                return;
+            }
             // 更新 withdraw 字段
             UpdateWrapper<ChatDetailed> updateWrapper = new UpdateWrapper<>();
             updateWrapper.eq("id", id).setSql("withdraw = 1");
-            chatDetailedMapper.update(new ChatDetailed(), updateWrapper);
+            chatDetailedMapper.update(null, updateWrapper);
 
             // 转发到发送者和接收者的全部channel
             Map<String, Object> map = new HashMap<>();
             map.put("type", "撤回");
+            map.put("sendId", chatDetailed.getUserId());
+            map.put("acceptId", chatDetailed.getAnotherId());
             map.put("id", id);
 
             // 发给自己的全部channel
