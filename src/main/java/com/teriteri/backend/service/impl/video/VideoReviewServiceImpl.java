@@ -48,8 +48,8 @@ public class VideoReviewServiceImpl implements VideoReviewService {
 
     /**
      * 查询对应状态的视频数量
-     * @param status
-     * @return
+     * @param status 状态 0审核中 1通过审核 2打回整改（指投稿信息不符） 3视频违规删除（视频内容违规）
+     * @return 包含视频数量的CustomResponse对象
      */
     @Override
     public CustomResponse getTotalByStatus(Integer status) {
