@@ -47,14 +47,14 @@ public class UserVideoServiceImpl implements UserVideoService {
         UserVideo userVideo = userVideoMapper.selectOne(queryWrapper);
         if (userVideo == null) {
             // 记录不存在，创建新记录
-            userVideo = new UserVideo(null, uid, vid, 1, 0, 0, 0, 0, new Date());
+            userVideo = new UserVideo(null, uid, vid, 1, 0, 0, 0, 0, new Date(), null, null, null);
             userVideoMapper.insert(userVideo);
-        } else if (System.currentTimeMillis() - userVideo.getRecentTime().getTime() <= 30000) {
+        } else if (System.currentTimeMillis() - userVideo.getPlayTime().getTime() <= 30000) {
             // 如果最近30秒内播放过则不更新记录，直接返回
             return userVideo;
         } else {
             userVideo.setPlay(userVideo.getPlay() + 1);
-            userVideo.setRecentTime(new Date());
+            userVideo.setPlayTime(new Date());
             userVideoMapper.updateById(userVideo);
         }
         // 异步线程更新video表和redis
@@ -75,6 +75,7 @@ public class UserVideoServiceImpl implements UserVideoService {
      */
     @Override
     public UserVideo setLoveOrUnlove(Integer uid, Integer vid, boolean isLove, boolean isSet) {
+        String key = "love_video:" + uid;
         QueryWrapper<UserVideo> queryWrapper = new QueryWrapper<>();
         queryWrapper.eq("uid", uid).eq("vid", vid);
         UserVideo userVideo = userVideoMapper.selectOne(queryWrapper);
@@ -88,6 +89,7 @@ public class UserVideoServiceImpl implements UserVideoService {
             UpdateWrapper<UserVideo> updateWrapper = new UpdateWrapper<>();
             updateWrapper.eq("uid", uid).eq("vid", vid);
             updateWrapper.setSql("love = 1");
+            updateWrapper.set("love_time", new Date());
             if (userVideo.getUnlove() == 1) {
                 // 原本点了踩，要取消踩
                 userVideo.setUnlove(0);
@@ -101,6 +103,7 @@ public class UserVideoServiceImpl implements UserVideoService {
                     videoStatsService.updateStats(vid, "good", true, 1);
                 }, taskExecutor);
             }
+            redisUtil.zset(key, vid);   // 添加点赞记录
             userVideoMapper.update(null, updateWrapper);
         } else if (isLove) {
             // 取消点赞
@@ -113,6 +116,7 @@ public class UserVideoServiceImpl implements UserVideoService {
             updateWrapper.eq("uid", uid).eq("vid", vid);
             updateWrapper.setSql("love = 0");
             userVideoMapper.update(null, updateWrapper);
+            redisUtil.zsetDelMember(key, vid);  // 移除点赞记录
             CompletableFuture.runAsync(() -> {
                 videoStatsService.updateStats(vid, "good", false, 1);
             }, taskExecutor);
@@ -130,6 +134,7 @@ public class UserVideoServiceImpl implements UserVideoService {
                 // 原本点了赞，要取消赞
                 userVideo.setLove(0);
                 updateWrapper.setSql("love = 0");
+                redisUtil.zsetDelMember(key, vid);  // 移除点赞记录
                 CompletableFuture.runAsync(() -> {
                     videoStatsService.updateGoodAndBad(vid, false);
                 }, taskExecutor);

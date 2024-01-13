@@ -21,5 +21,8 @@ public class UserVideo {
     private Integer unlove;    // 不喜欢 0没点 1已不喜欢
     private Integer coin;   // 投币数 0-2 一个视频一个用户上限投2个币
     private Integer collect;    // 收藏 0未收藏 1已收藏
-    private Date recentTime;    // 最近观看时间
+    private Date playTime;    // 最近观看时间
+    private Date loveTime;    // 最近点赞时间
+    private Date coinTime;    // 最近投币时间
+    private Date collectTime;    // 最近收藏时间
 }
