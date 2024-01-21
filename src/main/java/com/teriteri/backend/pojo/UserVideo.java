@@ -24,5 +24,4 @@ public class UserVideo {
     private Date playTime;    // 最近观看时间
     private Date loveTime;    // 最近点赞时间
     private Date coinTime;    // 最近投币时间
-    private Date collectTime;    // 最近收藏时间
 }

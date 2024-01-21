@@ -47,7 +47,7 @@ public class UserVideoServiceImpl implements UserVideoService {
         UserVideo userVideo = userVideoMapper.selectOne(queryWrapper);
         if (userVideo == null) {
             // 记录不存在，创建新记录
-            userVideo = new UserVideo(null, uid, vid, 1, 0, 0, 0, 0, new Date(), null, null, null);
+            userVideo = new UserVideo(null, uid, vid, 1, 0, 0, 0, 0, new Date(), null, null);
             userVideoMapper.insert(userVideo);
         } else if (System.currentTimeMillis() - userVideo.getPlayTime().getTime() <= 30000) {
             // 如果最近30秒内播放过则不更新记录，直接返回
@@ -161,5 +161,27 @@ public class UserVideoServiceImpl implements UserVideoService {
             }, taskExecutor);
         }
         return userVideo;
+    }
+
+    /**
+     * 收藏或取消收藏
+     * @param uid   用户ID
+     * @param vid   视频ID
+     * @param isCollect 是否收藏 true收藏 false取消
+     * @return  返回更新后的信息
+     */
+    @Override
+    public void collectOrCancel(Integer uid, Integer vid, boolean isCollect) {
+        UpdateWrapper<UserVideo> updateWrapper = new UpdateWrapper<>();
+        updateWrapper.eq("uid", uid).eq("vid", vid);
+        if (isCollect) {
+            updateWrapper.setSql("collect = 1");
+        } else {
+            updateWrapper.setSql("collect = 0");
+        }
+        CompletableFuture.runAsync(() -> {
+            videoStatsService.updateStats(vid, "collect", isCollect, 1);
+        }, taskExecutor);
+        userVideoMapper.update(null, updateWrapper);
     }
 }

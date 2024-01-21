@@ -2,9 +2,11 @@ package com.teriteri.backend.service.impl.user;
 
 import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
 import com.teriteri.backend.im.IMServer;
+import com.teriteri.backend.mapper.FavoriteMapper;
 import com.teriteri.backend.mapper.MsgUnreadMapper;
 import com.teriteri.backend.mapper.UserMapper;
 import com.teriteri.backend.pojo.CustomResponse;
+import com.teriteri.backend.pojo.Favorite;
 import com.teriteri.backend.pojo.MsgUnread;
 import com.teriteri.backend.pojo.User;
 import com.teriteri.backend.pojo.dto.UserDTO;
@@ -41,6 +43,9 @@ public class UserAccountServiceImpl implements UserAccountService {
 
     @Autowired
     private MsgUnreadMapper msgUnreadMapper;
+
+    @Autowired
+    private FavoriteMapper favoriteMapper;
 
     @Autowired
     private RedisUtil redisUtil;
@@ -151,6 +156,7 @@ public class UserAccountServiceImpl implements UserAccountService {
         );
         userMapper.insert(new_user);
         msgUnreadMapper.insert(new MsgUnread(new_user.getUid(),0,0,0,0,0,0));
+        favoriteMapper.insert(new Favorite(null, new_user.getUid(), 1, 1, null, "默认收藏夹", "", 0, null));
 
         customResponse.setMessage("注册成功！欢迎加入T站");
         return customResponse;
