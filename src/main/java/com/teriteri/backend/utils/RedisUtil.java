@@ -134,6 +134,23 @@ public class RedisUtil {
     }
 
     /**
+     * 按时间从大到小取数据携带时间
+     * @param key
+     * @param start
+     * @param end
+     * @return
+     */
+    public Set<ZSetObject> zReverangeWithTime(String key, Long start, Long end) {
+        Set<ZSetOperations.TypedTuple<Object>> result = redisTemplate.opsForZSet().reverseRangeWithScores(key, start, end);
+        if (result == null) return null;
+        Set<ZSetObject> set = new HashSet<>();
+        for (ZSetOperations.TypedTuple<Object> tuple : result) {
+            set.add(new ZSetObject(tuple.getValue(), new Date(tuple.getScore().longValue())));
+        }
+        return set;
+    }
+
+    /**
      * 获取指定对象的排名
      * @param key
      * @param member
