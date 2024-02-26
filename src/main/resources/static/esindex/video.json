@@ -1,0 +1,19 @@
+{
+  "settings": {
+    "index": {
+      "analysis.analyzer.default.type": "ik_max_word"
+    },
+    "number_of_replicas": 0
+  },
+  "mappings": {
+    "properties": {
+      "vid": { "type": "integer" },
+      "uid": { "type": "integer" },
+      "title": { "type": "text" },
+      "mc_id": { "type": "keyword" },
+      "sc_id": { "type": "keyword" },
+      "tags": { "type": "text" },
+      "status": { "type": "integer" }
+    }
+  }
+}

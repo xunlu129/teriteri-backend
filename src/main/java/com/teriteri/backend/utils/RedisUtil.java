@@ -220,17 +220,36 @@ public class RedisUtil {
     }
 
     /**
+     * 查询某个元素的分数
+     * @param key
+     * @param value
+     * @return
+     */
+    public Double zscore(String key, Object value) {
+        return redisTemplate.opsForZSet().score(key, value);
+    }
+
+    /**
+     * 对某个元素增加分数
+     *
+     * @param key
+     * @param value
+     * @param score
+     * @return
+     */
+    public Double zincrby(String key, Object value, long score) {
+        return redisTemplate.opsForZSet().incrementScore(key, value, score);
+    }
+
+    /**
      * 集合zset中是否存在目标对象
      * @param key
      * @param value
      * @return
      */
-    public Boolean zsetScore(String key, Object value) {
-        if (null!=redisTemplate.opsForZSet().score(key, value) && redisTemplate.opsForZSet().score(key, value) > 0) {
-            return true;
-        } else {
-            return false;
-        }
+    public Boolean zsetExist(String key, Object value) {
+        Double d = zscore(key, value);
+        return null != d;
     }
 
     public Boolean zsetByLimit(String key, Object value, Integer limit) {

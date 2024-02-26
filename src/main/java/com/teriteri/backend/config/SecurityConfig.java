@@ -102,7 +102,8 @@ public class SecurityConfig {
                                 "/danmu-list/**",
                                 "/msg/chat/outline",
                                 "/video/play/visitor",
-                                "/favorite/get-all/visitor").permitAll()
+                                "/favorite/get-all/visitor",
+                                "/search/**").permitAll()
                         // 允许HTTP OPTIONS请求
                         .antMatchers(HttpMethod.OPTIONS).permitAll()
                         // 其他地址的访问均需验证权限

@@ -18,6 +18,7 @@
     <description>backend</description>
     <properties>
         <java.version>1.8</java.version>
+        <elasticsearch.version>7.17.16</elasticsearch.version>
     </properties>
     <dependencies>
 
@@ -182,6 +183,23 @@
         <!--            <version>1.69</version> &lt;!&ndash; 使用最新版本 &ndash;&gt;-->
         <!--        </dependency>-->
 
+        <!--elasticsearch-->
+        <dependency>
+            <groupId>co.elastic.clients</groupId>
+            <artifactId>elasticsearch-java</artifactId>
+            <version>7.17.16</version>
+        </dependency>
+        <dependency>
+            <groupId>com.fasterxml.jackson.core</groupId>
+            <artifactId>jackson-databind</artifactId>
+            <version>2.12.3</version>
+        </dependency>
+        <dependency>
+            <groupId>org.glassfish</groupId>
+            <artifactId>jakarta.json</artifactId>
+            <version>2.0.1</version>
+        </dependency>
+
         <!--websocket-->
         <dependency>
             <groupId>org.springframework.boot</groupId>
@@ -198,6 +216,11 @@
             <artifactId>spring-boot-starter-test</artifactId>
             <scope>test</scope>
         </dependency>
+
+<!--        <dependency>-->
+<!--            <groupId>org.springframework.boot</groupId>-->
+<!--            <artifactId>spring-boot-starter-data-elasticsearch</artifactId>-->
+<!--        </dependency>-->
     </dependencies>
 
     <build>
