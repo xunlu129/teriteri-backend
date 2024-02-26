@@ -95,6 +95,7 @@ public class FavoriteVideoServiceImpl implements FavoriteVideoService {
             UpdateWrapper<Favorite> updateWrapper1 = new UpdateWrapper<>();
             updateWrapper1.in("fid", fids).setSql("count = CASE WHEN count - 1 < 0 THEN 0 ELSE count - 1 END");
             favoriteMapper.update(null, updateWrapper1);
+            sqlSession.commit();
         }
         // 更新 Redis 中每个 ZSet
         for (Integer fid : fids) {

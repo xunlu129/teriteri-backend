@@ -1,0 +1,14 @@
+{
+  "settings": {
+    "index": {
+      "analysis.analyzer.default.type": "ik_max_word"
+    },
+    "number_of_replicas": 0
+  },
+  "mappings": {
+    "properties": {
+      "uid": { "type": "integer" },
+      "nickname": { "type": "text" }
+    }
+  }
+}

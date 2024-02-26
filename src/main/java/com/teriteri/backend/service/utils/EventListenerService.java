@@ -1,5 +1,12 @@
 package com.teriteri.backend.service.utils;
 
+import co.elastic.clients.elasticsearch.ElasticsearchClient;
+import co.elastic.clients.elasticsearch.core.SearchResponse;
+import co.elastic.clients.elasticsearch.core.search.Hit;
+import co.elastic.clients.elasticsearch.indices.GetIndexResponse;
+import co.elastic.clients.json.jackson.JacksonJsonpMapper;
+import co.elastic.clients.transport.ElasticsearchTransport;
+import co.elastic.clients.transport.rest_client.RestClientTransport;
 import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
 import com.teriteri.backend.mapper.ChatDetailedMapper;
 import com.teriteri.backend.mapper.VideoMapper;
@@ -7,7 +14,14 @@ import com.teriteri.backend.pojo.ChatDetailed;
 import com.teriteri.backend.pojo.Video;
 import com.teriteri.backend.utils.RedisUtil;
 import lombok.extern.slf4j.Slf4j;
+import org.apache.http.HttpHost;
+import org.apache.http.auth.AuthScope;
+import org.apache.http.auth.UsernamePasswordCredentials;
+import org.apache.http.client.CredentialsProvider;
+import org.apache.http.impl.client.BasicCredentialsProvider;
+import org.elasticsearch.client.RestClient;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
@@ -87,9 +101,9 @@ public class EventListenerService {
     }
 
     /**
-     * 每两小时同步一下各状态的视频集合
+     * 每24小时同步一下各状态的视频集合
      */
-    @Scheduled(fixedDelay = 1000 * 60 * 60 * 2)
+    @Scheduled(fixedDelay = 1000 * 60 * 60 * 24)
     public void updateVideoStatus() {
         for (int i = 0; i < 3; i++) {
             QueryWrapper<Video> queryWrapper = new QueryWrapper<>();

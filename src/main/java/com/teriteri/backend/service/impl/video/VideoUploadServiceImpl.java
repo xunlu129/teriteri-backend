@@ -9,6 +9,7 @@ import com.teriteri.backend.pojo.VideoStats;
 import com.teriteri.backend.pojo.dto.VideoUploadInfoDTO;
 import com.teriteri.backend.service.utils.CurrentUser;
 import com.teriteri.backend.service.video.VideoUploadService;
+import com.teriteri.backend.utils.ESUtil;
 import com.teriteri.backend.utils.OssUtil;
 import com.teriteri.backend.utils.RedisUtil;
 import lombok.extern.slf4j.Slf4j;
@@ -53,6 +54,9 @@ public class VideoUploadServiceImpl implements VideoUploadService {
 
     @Autowired
     private OssUtil ossUtil;
+
+    @Autowired
+    private ESUtil esUtil;
 
     @Autowired
     @Qualifier("taskExecutor")
@@ -301,7 +305,7 @@ public class VideoUploadServiceImpl implements VideoUploadService {
     }
 
     /**
-     * 启用多线程将新视频和统计数据写库并添加到redis
+     * 启用多线程将新视频和统计数据写库并添加到redis和elasticsearch
      * @param video
      */
     public void addVideoStats(Video video) {
@@ -311,5 +315,6 @@ public class VideoUploadServiceImpl implements VideoUploadService {
         CompletableFuture.runAsync(() -> redisUtil.setExObjectValue("video:" + video.getVid(), video), taskExecutor);
         CompletableFuture.runAsync(() -> redisUtil.addMember("video_status:0", video.getVid()), taskExecutor);
         CompletableFuture.runAsync(() -> redisUtil.setExObjectValue("videoStats:" + video.getVid(), videoStats), taskExecutor);
+        CompletableFuture.runAsync(() -> esUtil.addVideo(video), taskExecutor);
     }
 }

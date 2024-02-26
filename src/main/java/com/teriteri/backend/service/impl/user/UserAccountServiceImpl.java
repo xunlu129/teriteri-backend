@@ -13,6 +13,7 @@ import com.teriteri.backend.pojo.dto.UserDTO;
 import com.teriteri.backend.service.user.UserAccountService;
 import com.teriteri.backend.service.user.UserService;
 import com.teriteri.backend.service.utils.CurrentUser;
+import com.teriteri.backend.utils.ESUtil;
 import com.teriteri.backend.utils.JwtUtil;
 import com.teriteri.backend.utils.RedisUtil;
 import io.netty.channel.*;
@@ -52,6 +53,9 @@ public class UserAccountServiceImpl implements UserAccountService {
 
     @Autowired
     private JwtUtil jwtUtil;
+
+    @Autowired
+    private ESUtil esUtil;
 
     @Autowired
     private CurrentUser currentUser;
@@ -157,7 +161,7 @@ public class UserAccountServiceImpl implements UserAccountService {
         userMapper.insert(new_user);
         msgUnreadMapper.insert(new MsgUnread(new_user.getUid(),0,0,0,0,0,0));
         favoriteMapper.insert(new Favorite(null, new_user.getUid(), 1, 1, null, "默认收藏夹", "", 0, null));
-
+        esUtil.addUser(new_user);
         customResponse.setMessage("注册成功！欢迎加入T站");
         return customResponse;
     }
