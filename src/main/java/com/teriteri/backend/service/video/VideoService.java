@@ -24,6 +24,13 @@ public interface VideoService {
     Map<String, Object> getVideoWithDataById(Integer vid);
 
     /**
+     * 根据有序vid列表查询视频以及相关信息
+     * @param list  vid有序列表
+     * @return  有序的视频列表
+     */
+    List<Map<String, Object>> getVideosWithDataByIdList(List<Integer> list);
+
+    /**
      * 更新视频状态，包括过审、不通过、删除，其中审核相关需要管理员权限，删除可以是管理员或者投稿用户
      * @param vid   视频ID
      * @param status 要修改的状态，1通过 2不通过 3删除
