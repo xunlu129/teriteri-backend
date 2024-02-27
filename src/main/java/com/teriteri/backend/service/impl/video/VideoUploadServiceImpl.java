@@ -309,7 +309,7 @@ public class VideoUploadServiceImpl implements VideoUploadService {
      * @param video
      */
     public void addVideoStats(Video video) {
-        VideoStats videoStats = new VideoStats(video.getVid(),0,0,0,0,0,0,0);
+        VideoStats videoStats = new VideoStats(video.getVid(),0,0,0,0,0,0,0,0);
         // 使用多线程并行速度提升50%，尽管串行耗时只有122ms，并行耗时60ms
         CompletableFuture.runAsync(() -> videoStatsMapper.insert(videoStats), taskExecutor);
         CompletableFuture.runAsync(() -> redisUtil.setExObjectValue("video:" + video.getVid(), video), taskExecutor);
