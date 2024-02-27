@@ -136,7 +136,7 @@ public class UserServiceImpl implements UserService {
                             0,0,0,0,0
                     );
                     Set<Object> set = redisUtil.zReverange("user_video_upload:" + user.getUid(), 0L, -1L);
-                    if (set == null) {
+                    if (set == null || set.size() == 0) {
                         return Stream.of(userDTO);
                     }
                     QueryWrapper<VideoStats> queryWrapper1 = new QueryWrapper<>();
