@@ -1,13 +1,29 @@
 {
   "settings": {
-    "index": {
-      "analysis.analyzer.default.type": "ik_max_word"
+    "analysis": {
+      "analyzer": {
+        "ik_and_pinyin_analyzer": {
+          "type": "custom",
+          "tokenizer": "ik_max_word",
+          "filter": ["pinyin_filter"]
+        }
+      },
+      "filter": {
+        "pinyin_filter": {
+          "type": "pinyin",
+          "first_letter": "prefix",
+          "padding_char": " "
+        }
+      }
     },
     "number_of_replicas": 0
   },
   "mappings": {
     "properties": {
-      "content": { "type": "text" }
+      "content": {
+        "type": "text",
+        "analyzer": "ik_and_pinyin_analyzer"
+      }
     }
   }
 }
