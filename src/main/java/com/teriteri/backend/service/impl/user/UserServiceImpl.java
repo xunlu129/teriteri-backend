@@ -2,7 +2,9 @@ package com.teriteri.backend.service.impl.user;
 
 import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
 import com.teriteri.backend.mapper.UserMapper;
+import com.teriteri.backend.mapper.VideoStatsMapper;
 import com.teriteri.backend.pojo.User;
+import com.teriteri.backend.pojo.VideoStats;
 import com.teriteri.backend.pojo.dto.UserDTO;
 import com.teriteri.backend.service.user.UserService;
 import com.teriteri.backend.utils.RedisUtil;
@@ -13,6 +15,7 @@ import org.springframework.stereotype.Service;
 import java.util.Collections;
 import java.util.List;
 import java.util.Objects;
+import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
 import java.util.stream.Collectors;
@@ -22,6 +25,9 @@ import java.util.stream.Stream;
 public class UserServiceImpl implements UserService {
     @Autowired
     private UserMapper userMapper;
+
+    @Autowired
+    private VideoStatsMapper videoStatsMapper;
 
     @Autowired
     private RedisUtil redisUtil;
@@ -62,6 +68,11 @@ public class UserServiceImpl implements UserService {
             userDTO.setExp(0);
             userDTO.setVip(0);
             userDTO.setAuth(0);
+            userDTO.setVideoCount(0);
+            userDTO.setFollowsCount(0);
+            userDTO.setFansCount(0);
+            userDTO.setLoveCount(0);
+            userDTO.setPlayCount(0);
             return userDTO;
         }
         userDTO.setNickname(user.getNickname());
@@ -73,6 +84,26 @@ public class UserServiceImpl implements UserService {
         userDTO.setVip(user.getVip());
         userDTO.setAuth(user.getAuth());
         userDTO.setAuthMsg(user.getAuthMsg());
+        userDTO.setFollowsCount(0);
+        userDTO.setFansCount(0);
+        Set<Object> set = redisUtil.zReverange("user_video_upload:" + user.getUid(), 0L, -1L);
+        if (set == null) {
+            userDTO.setVideoCount(0);
+            userDTO.setLoveCount(0);
+            userDTO.setPlayCount(0);
+            return userDTO;
+        }
+        QueryWrapper<VideoStats> queryWrapper = new QueryWrapper<>();
+        queryWrapper.in("vid", set);
+        List<VideoStats> list = videoStatsMapper.selectList(queryWrapper);
+        int video = list.size(), love = 0, play = 0;
+        for (VideoStats videoStats : list) {
+            love = love + videoStats.getGood();
+            play = play + videoStats.getPlay();
+        }
+        userDTO.setVideoCount(video);
+        userDTO.setLoveCount(love);
+        userDTO.setPlayCount(play);
         return userDTO;
     }
 
@@ -101,8 +132,24 @@ public class UserServiceImpl implements UserService {
                             user.getVip(),
                             user.getState(),
                             user.getAuth(),
-                            user.getAuthMsg()
+                            user.getAuthMsg(),
+                            0,0,0,0,0
                     );
+                    Set<Object> set = redisUtil.zReverange("user_video_upload:" + user.getUid(), 0L, -1L);
+                    if (set == null) {
+                        return Stream.of(userDTO);
+                    }
+                    QueryWrapper<VideoStats> queryWrapper1 = new QueryWrapper<>();
+                    queryWrapper1.in("vid", set);
+                    List<VideoStats> videoStatsList = videoStatsMapper.selectList(queryWrapper1);
+                    int video = videoStatsList.size(), love = 0, play = 0;
+                    for (VideoStats videoStats : videoStatsList) {
+                        love = love + videoStats.getGood();
+                        play = play + videoStats.getPlay();
+                    }
+                    userDTO.setVideoCount(video);
+                    userDTO.setLoveCount(love);
+                    userDTO.setPlayCount(play);
                     return Stream.of(userDTO);
                 }
         ).collect(Collectors.toList());

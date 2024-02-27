@@ -42,10 +42,10 @@ public class SearchServiceImpl implements SearchService {
             if (redisUtil.zsetExist("search_word", formattedString)) {
                 // 如果有，就热度加一
                 redisUtil.zincrby("search_word", formattedString, 1);
-                esUtil.addSearchWord(formattedString);
             } else {
                 // 否则添加成员到redis和ES
                 redisUtil.zsetWithScore("search_word", formattedString, 1);
+                esUtil.addSearchWord(formattedString);
             }
         }, taskExecutor);
         return formattedString;

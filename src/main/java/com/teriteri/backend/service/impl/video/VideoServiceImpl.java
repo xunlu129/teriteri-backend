@@ -244,12 +244,13 @@ public class VideoServiceImpl implements VideoService {
                 Integer lastStatus = video.getStatus();
                 video.setStatus(1);
                 UpdateWrapper<Video> updateWrapper = new UpdateWrapper<>();
-                updateWrapper.eq("vid", vid).set("status", 1);     // 更新视频状态审核通过
+                updateWrapper.eq("vid", vid).set("status", 1).set("upload_date", new Date());     // 更新视频状态审核通过
                 int flag = videoMapper.update(null, updateWrapper);
                 if (flag > 0) {
                     // 更新成功
                     redisUtil.delMember("video_status:" + lastStatus, vid);     // 从旧状态移除
                     redisUtil.addMember("video_status:1", vid);     // 加入新状态
+                    redisUtil.zset("user_video_upload:" + video.getUid(), video.getVid());
                     redisUtil.delValue("video:" + vid);     // 删除旧的视频信息
                     CompletableFuture.runAsync(() -> esUtil.updateVideo(video), taskExecutor);  // 更新ES视频文档
                     return customResponse;
@@ -263,7 +264,7 @@ public class VideoServiceImpl implements VideoService {
             else {
                 // 目前逻辑跟上面一样的，但是可能以后要做一些如 记录不通过原因 等操作，所以就分开写了
                 QueryWrapper<Video> queryWrapper = new QueryWrapper<>();
-                queryWrapper.eq("vid", vid).isNull("delete_date");
+                queryWrapper.eq("vid", vid).ne("status", 3);
                 Video video = videoMapper.selectOne(queryWrapper);
                 if (video == null) {
                     customResponse.setCode(404);
@@ -291,7 +292,7 @@ public class VideoServiceImpl implements VideoService {
             }
         } else if (status == 3) {
             QueryWrapper<Video> queryWrapper = new QueryWrapper<>();
-            queryWrapper.eq("vid", vid).isNull("delete_date");
+            queryWrapper.eq("vid", vid).ne("status", 3);
             Video video = videoMapper.selectOne(queryWrapper);
             if (video == null) {
                 customResponse.setCode(404);
@@ -311,6 +312,7 @@ public class VideoServiceImpl implements VideoService {
                     // 更新成功
                     redisUtil.delMember("video_status:" + lastStatus, vid);     // 从旧状态移除
                     redisUtil.delValue("video:" + vid);     // 删除旧的视频信息
+                    redisUtil.zsetDelMember("user_video_upload:" + video.getUid(), video.getVid());
                     // 搞个异步线程去删除OSS的源文件和ES上的文档
                     CompletableFuture.runAsync(() -> ossUtil.deleteFiles(videoPrefix), taskExecutor);
                     CompletableFuture.runAsync(() -> ossUtil.deleteFiles(coverPrefix), taskExecutor);
