@@ -41,7 +41,7 @@ public class FavoriteServiceImpl implements FavoriteService {
             return list;
         }
         QueryWrapper<Favorite> queryWrapper = new QueryWrapper<>();
-        queryWrapper.eq("uid", uid).isNull("is_delete").orderByDesc("fid");
+        queryWrapper.eq("uid", uid).ne("is_delete", 1).orderByDesc("fid");
         list = favoriteMapper.selectList(queryWrapper);
         if (list != null && !list.isEmpty()) {
             List<Favorite> finalList = list;

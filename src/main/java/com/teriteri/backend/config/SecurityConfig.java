@@ -103,7 +103,9 @@ public class SecurityConfig {
                                 "/msg/chat/outline",
                                 "/video/play/visitor",
                                 "/favorite/get-all/visitor",
-                                "/search/**").permitAll()
+                                "/search/**",
+                                "/comment/get",
+                                "/comment/reply/get-more").permitAll()
                         // 允许HTTP OPTIONS请求
                         .antMatchers(HttpMethod.OPTIONS).permitAll()
                         // 其他地址的访问均需验证权限
