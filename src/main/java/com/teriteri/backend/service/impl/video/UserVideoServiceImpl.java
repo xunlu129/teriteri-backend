@@ -85,6 +85,7 @@ public class UserVideoServiceImpl implements UserVideoService {
                 // 原本就点了赞就直接返回
                 return userVideo;
             }
+            // 插入点赞记录
             userVideo.setLove(1);
             UpdateWrapper<UserVideo> updateWrapper = new UpdateWrapper<>();
             updateWrapper.eq("uid", uid).eq("vid", vid);
@@ -111,6 +112,7 @@ public class UserVideoServiceImpl implements UserVideoService {
                 // 原本就没有点赞就直接返回
                 return userVideo;
             }
+            // 取消赞
             userVideo.setLove(0);
             UpdateWrapper<UserVideo> updateWrapper = new UpdateWrapper<>();
             updateWrapper.eq("uid", uid).eq("vid", vid);
@@ -126,6 +128,7 @@ public class UserVideoServiceImpl implements UserVideoService {
                 // 原本就点了踩就直接返回
                 return userVideo;
             }
+            // 更新用户点踩记录
             userVideo.setUnlove(1);
             UpdateWrapper<UserVideo> updateWrapper = new UpdateWrapper<>();
             updateWrapper.eq("uid", uid).eq("vid", vid);
@@ -151,6 +154,7 @@ public class UserVideoServiceImpl implements UserVideoService {
                 // 原本就没有点踩就直接返回
                 return userVideo;
             }
+            // 取消用户点踩记录
             userVideo.setUnlove(0);
             UpdateWrapper<UserVideo> updateWrapper = new UpdateWrapper<>();
             updateWrapper.eq("uid", uid).eq("vid", vid);

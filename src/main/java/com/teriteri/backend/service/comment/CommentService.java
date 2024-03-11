@@ -20,4 +20,11 @@ public interface CommentService {
     List<Comment> getRootCommentsByVid(Integer vid, Long offset, Integer type);
 
     CommentTree getMoreCommentsById(Integer id);
+
+    /*
+    评论点赞点踩相关
+     */
+    void updateLikeAndDisLike(Integer id, boolean addLike);
+
+    void updateComment(Integer id, String column, boolean incr, Integer count);
 }

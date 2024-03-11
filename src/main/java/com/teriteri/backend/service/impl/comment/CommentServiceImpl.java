@@ -19,7 +19,6 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.util.*;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Executor;
 import java.util.stream.Collectors;
 
@@ -56,7 +55,7 @@ public class CommentServiceImpl implements CommentService {
         List<CompletableFuture<CommentTree>> futureList = rootComments.stream()
                 .map(rootComment ->
                         CompletableFuture.supplyAsync(
-                                () -> buildCommentTree(rootComment, 0L, 0L),
+                                () -> buildCommentTree(rootComment, 0L, 2L),
                                 taskExecutor))
                 .collect(Collectors.toList());
 
@@ -84,8 +83,16 @@ public class CommentServiceImpl implements CommentService {
         tree.setLove(comment.getLove());
         tree.setBad(comment.getBad());
 
-        tree.setUser(userService.getUserById(comment.getUid()));
-        tree.setToUser(userService.getUserById(comment.getToUserId()));
+        CompletableFuture<Void> userFuture = CompletableFuture.runAsync(() -> {
+            tree.setUser(userService.getUserById(comment.getUid()));
+        }, taskExecutor);
+
+        CompletableFuture<Void> toUserFuture = CompletableFuture.runAsync(() -> {
+            tree.setToUser(userService.getUserById(comment.getToUserId()));
+        }, taskExecutor);
+
+        userFuture.join();
+        toUserFuture.join();
 
         // 递归查询构建子评论树
         // 这里如果是根节点的评论，则查出他的子评论； 如果不是根节点评论，则不查，只填写 User 信息。
@@ -201,9 +208,9 @@ public class CommentServiceImpl implements CommentService {
                  如果不是根节点评论，则将他所在的 comment_reply(zset) 中的 comment_id 删掉
                  */
                 if (Objects.equals(comment.getRootId(), 0)) {
-                    redisUtil.delMember("comment_video:" + comment.getVid(), comment.getId());
+                    redisUtil.zsetDelMember("comment_video:" + comment.getVid(), comment.getId());
                 } else {
-                    redisUtil.delMember("comment_reply:" + comment.getRootId(), comment.getId());
+                    redisUtil.zsetDelMember("comment_reply:" + comment.getRootId(), comment.getId());
                 }
 
                 // 视频回复数量 - 1
@@ -280,7 +287,7 @@ public class CommentServiceImpl implements CommentService {
         QueryWrapper<Comment> wrapper = new QueryWrapper<>();
         wrapper.in("id", rootIdsSet).ne("is_deleted", 1);
         if (type == 1) { // 热度
-            wrapper.orderByAsc("love");
+            wrapper.orderByDesc("love");
         } else if (type == 2) { // 时间
             wrapper.orderByDesc("create_time");
         }
@@ -292,5 +299,36 @@ public class CommentServiceImpl implements CommentService {
     public CommentTree getMoreCommentsById(Integer id) {
         Comment comment = commentMapper.selectById(id);
         return buildCommentTree(comment, 0L, -1L);
+    }
+
+    @Override
+    public void updateLikeAndDisLike(Integer id, boolean addLike) {
+        UpdateWrapper<Comment> updateWrapper = new UpdateWrapper<>();
+        if (addLike) {
+            updateWrapper.setSql("love = love + 1, bad = CASE WHEN " +
+                    "bad - 1 < 0 " +
+                            "THEN 0 " +
+                            "ELSE bad - 1 ");
+        } else {
+            updateWrapper.setSql("bad = bad + 1, love = CASE WHEN " +
+                    "love - 1 < 0 " +
+                    "THEN 0 " +
+                    "ELSE love - 1 ");
+        }
+
+        commentMapper.update(null, updateWrapper);
+    }
+
+    @Override
+    public void updateComment(Integer id, String column, boolean increase, Integer count) {
+        UpdateWrapper<Comment> updateWrapper = new UpdateWrapper<>();
+        updateWrapper.eq("id", id);
+        if (increase) {
+            updateWrapper.setSql(column + " = " + column + " + " + count);
+        } else {
+            // 更新后的字段不能小于0
+            updateWrapper.setSql(column + " = CASE WHEN " + column + " - " + count + " < 0 THEN 0 ELSE " + column + " - " + count + " END");
+        }
+        commentMapper.update(null, updateWrapper);
     }
 }
