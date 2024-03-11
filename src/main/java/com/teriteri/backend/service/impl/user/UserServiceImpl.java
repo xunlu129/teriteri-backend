@@ -8,6 +8,7 @@ import com.teriteri.backend.pojo.VideoStats;
 import com.teriteri.backend.pojo.dto.UserDTO;
 import com.teriteri.backend.service.user.UserService;
 import com.teriteri.backend.utils.RedisUtil;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.stereotype.Service;
@@ -21,6 +22,7 @@ import java.util.concurrent.Executor;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
+@Slf4j
 @Service
 public class UserServiceImpl implements UserService {
     @Autowired
@@ -87,7 +89,7 @@ public class UserServiceImpl implements UserService {
         userDTO.setFollowsCount(0);
         userDTO.setFansCount(0);
         Set<Object> set = redisUtil.zReverange("user_video_upload:" + user.getUid(), 0L, -1L);
-        if (set == null) {
+        if (set == null || set.size() == 0) {
             userDTO.setVideoCount(0);
             userDTO.setLoveCount(0);
             userDTO.setPlayCount(0);
