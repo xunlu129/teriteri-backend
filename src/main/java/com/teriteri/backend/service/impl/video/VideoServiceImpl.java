@@ -99,9 +99,6 @@ public class VideoServiceImpl implements VideoService {
 
                     CompletableFuture<Void> userFuture = CompletableFuture.runAsync(() -> {
                         map.put("user", userService.getUserById(video.getUid()));
-                    }, taskExecutor);
-
-                    CompletableFuture<Void> statsFuture = CompletableFuture.runAsync(() -> {
                         map.put("stats", videoStatsService.getVideoStatsById(video.getVid()));
                     }, taskExecutor);
 
@@ -111,7 +108,6 @@ public class VideoServiceImpl implements VideoService {
 
                     // 使用join()等待全部任务完成
                     userFuture.join();
-                    statsFuture.join();
                     categoryFuture.join();
 
                     return map;
@@ -152,8 +148,6 @@ public class VideoServiceImpl implements VideoService {
         Video finalVideo = video;
         CompletableFuture<Void> userFuture = CompletableFuture.runAsync(() -> {
             map.put("user", userService.getUserById(finalVideo.getUid()));
-        }, taskExecutor);
-        CompletableFuture<Void> statsFuture = CompletableFuture.runAsync(() -> {
             map.put("stats", videoStatsService.getVideoStatsById(finalVideo.getVid()));
         }, taskExecutor);
         CompletableFuture<Void> categoryFuture = CompletableFuture.runAsync(() -> {
@@ -162,7 +156,6 @@ public class VideoServiceImpl implements VideoService {
         map.put("video", video);
         // 使用join()等待userFuture和categoryFuture任务完成
         userFuture.join();
-        statsFuture.join();
         categoryFuture.join();
 
         return map;
@@ -196,9 +189,6 @@ public class VideoServiceImpl implements VideoService {
 
                     CompletableFuture<Void> userFuture = CompletableFuture.runAsync(() -> {
                         map.put("user", userService.getUserById(video.getUid()));
-                    }, taskExecutor);
-
-                    CompletableFuture<Void> statsFuture = CompletableFuture.runAsync(() -> {
                         map.put("stats", videoStatsService.getVideoStatsById(video.getVid()));
                     }, taskExecutor);
 
@@ -207,7 +197,6 @@ public class VideoServiceImpl implements VideoService {
                     }, taskExecutor);
 
                     userFuture.join();
-                    statsFuture.join();
                     categoryFuture.join();
 
                     return Stream.of(map);

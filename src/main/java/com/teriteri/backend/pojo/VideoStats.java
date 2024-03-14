@@ -19,4 +19,5 @@ public class VideoStats {
     private Integer coin;
     private Integer collect;
     private Integer share;
+    private Integer comment;
 }

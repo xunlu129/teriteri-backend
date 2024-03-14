@@ -123,6 +123,17 @@ public class RedisUtil {
     }
 
     /**
+     * 分数从小到大取排行榜
+     * @param key
+     * @param start
+     * @param stop
+     * @return
+     */
+    public Set<Object> zRange(String key, Long start, Long stop) {
+        return redisTemplate.opsForZSet().range(key, start, stop);
+    }
+
+    /**
      * 分数从大到小取排行榜
      * @param key
      * @param start

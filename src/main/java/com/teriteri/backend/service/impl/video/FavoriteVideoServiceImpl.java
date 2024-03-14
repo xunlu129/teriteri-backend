@@ -15,6 +15,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
 import java.util.Date;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 import java.util.stream.Collectors;
@@ -35,6 +36,7 @@ public class FavoriteVideoServiceImpl implements FavoriteVideoService {
 
     @Override
     public Set<Integer> findFidsOfCollected(Integer vid, Set<Integer> fids) {
+        if (fids.size() == 0) return new HashSet<>();
         QueryWrapper<FavoriteVideo> queryWrapper = new QueryWrapper<>();
         queryWrapper.eq("vid", vid)
                 .in("fid", fids)
