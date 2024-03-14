@@ -30,6 +30,11 @@ public class UserCommentServiceImpl implements UserCommentService {
     @Autowired
     private CommentService commentService;
 
+    /**
+     * 获取用户点赞和点踩的评论集合
+     * @param uid   当前用户
+     * @return  点赞和点踩的评论集合
+     */
     @Override
     public Map<String, Object> getUserLikeAndDislike(Integer uid) {
         Map<String, Object> map = new HashMap<>();
@@ -59,6 +64,13 @@ public class UserCommentServiceImpl implements UserCommentService {
         return map;
     }
 
+    /**
+     * 点赞或点踩某条评论
+     * @param uid   当前用户id
+     * @param id    评论id
+     * @param isLike true 赞 false 踩
+     * @param isSet true 点 false 取消
+     */
     @Override
     public void userSetLikeOrUnlike(Integer uid, Integer id, boolean isLike, boolean isSet) {
         Boolean likeExist = redisUtil.isMember("user_like_comment:" + uid, id);
@@ -68,7 +80,6 @@ public class UserCommentServiceImpl implements UserCommentService {
         if (isLike && isSet) {
             // 原本就点了赞
             if (likeExist) {
-                log.info("原本就点了赞");
                 return;
             }
             // 原本点了踩，就要取消踩
@@ -94,7 +105,6 @@ public class UserCommentServiceImpl implements UserCommentService {
             // 取消点赞
             if (!likeExist) {
                 // 原本就没有点赞，直接返回
-                log.info("原本就没有点赞");
                 return;
             }
             CompletableFuture.runAsync(() -> {
@@ -109,7 +119,6 @@ public class UserCommentServiceImpl implements UserCommentService {
             // 点踩
             if (dislikeExist) {
                 // 原本就点了踩，直接返回
-                log.info("原本就点了踩");
                 return;
             }
 
@@ -135,7 +144,6 @@ public class UserCommentServiceImpl implements UserCommentService {
             // 取消点踩
             if (!dislikeExist) {
                 // 原本就没有点踩直接返回
-                log.info("原本就没有点踩");
                 return;
             }
 

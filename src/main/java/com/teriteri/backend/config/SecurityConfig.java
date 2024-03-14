@@ -91,7 +91,8 @@ public class SecurityConfig {
                 // 下面开始设置权限
                 .authorizeRequests(authorize -> authorize
                         // 请求放开接口
-                        .antMatchers("/user/account/register",
+                        .antMatchers("/druid/**","/favicon.ico",
+                                "/user/account/register",
                                 "/user/account/login",
                                 "/admin/account/login",
                                 "/category/getall",
@@ -105,7 +106,8 @@ public class SecurityConfig {
                                 "/favorite/get-all/visitor",
                                 "/search/**",
                                 "/comment/get",
-                                "/comment/reply/get-more").permitAll()
+                                "/comment/reply/get-more",
+                                "/comment/get-up-like").permitAll()
                         // 允许HTTP OPTIONS请求
                         .antMatchers(HttpMethod.OPTIONS).permitAll()
                         // 其他地址的访问均需验证权限

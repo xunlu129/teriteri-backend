@@ -142,17 +142,17 @@ class ApplicationTests {
     @Test
     void createIndex() throws IOException {
         InputStream input1 = this.getClass().getResourceAsStream("/static/esindex/video.json");
-//        InputStream input2 = this.getClass().getResourceAsStream("/static/esindex/user.json");
-//        InputStream input3 = this.getClass().getResourceAsStream("/static/esindex/search_word.json");
+        InputStream input2 = this.getClass().getResourceAsStream("/static/esindex/user.json");
+        InputStream input3 = this.getClass().getResourceAsStream("/static/esindex/search_word.json");
         CreateIndexRequest req1 = CreateIndexRequest.of(b -> b.index("video").withJson(input1));
-//        CreateIndexRequest req2 = CreateIndexRequest.of(b -> b.index("user").withJson(input2));
-//        CreateIndexRequest req3 = CreateIndexRequest.of(b -> b.index("search_word").withJson(input3));
+        CreateIndexRequest req2 = CreateIndexRequest.of(b -> b.index("user").withJson(input2));
+        CreateIndexRequest req3 = CreateIndexRequest.of(b -> b.index("search_word").withJson(input3));
         CreateIndexResponse resp1 = client.indices().create(req1);
-//        CreateIndexResponse resp2 = client.indices().create(req2);
-//        CreateIndexResponse resp3 = client.indices().create(req3);
+        CreateIndexResponse resp2 = client.indices().create(req2);
+        CreateIndexResponse resp3 = client.indices().create(req3);
         System.out.println(resp1);
-//        System.out.println(resp2);
-//        System.out.println(resp3);
+        System.out.println(resp2);
+        System.out.println(resp3);
     }
 
 
@@ -183,6 +183,14 @@ class ApplicationTests {
         }
         BulkResponse bulkResponse = client.bulk(b -> b.index("user").operations(bulkOperationList));
         System.out.println(bulkResponse);
+    }
+
+    @Test
+    void updateDocUser() {
+        User user = new User();
+        user.setUid(13);
+        user.setNickname("迷鹿");
+        esUtil.updateUser(user);
     }
 
     // 删除文档

@@ -4,6 +4,7 @@ import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
 import com.baomidou.mybatisplus.core.conditions.update.UpdateWrapper;
 import com.teriteri.backend.im.IMServer;
 import com.teriteri.backend.mapper.CommentMapper;
+import com.teriteri.backend.mapper.VideoMapper;
 import com.teriteri.backend.pojo.*;
 import com.teriteri.backend.service.comment.CommentService;
 import com.teriteri.backend.service.message.MsgUnreadService;
@@ -33,6 +34,9 @@ public class CommentServiceImpl implements CommentService {
     private CommentMapper commentMapper;
 
     @Autowired
+    private VideoMapper videoMapper;
+
+    @Autowired
     private VideoStatsService videoStatsService;
 
     @Autowired
@@ -45,7 +49,13 @@ public class CommentServiceImpl implements CommentService {
     @Qualifier("taskExecutor")
     private Executor taskExecutor;
 
-
+    /**
+     * 获取评论树列表
+     * @param vid   对应视频ID
+     * @param offset 分页偏移量（已经获取到的评论树的数量）
+     * @param type  排序类型 1 按热度排序 2 按时间排序
+     * @return  评论树列表
+     */
     @Override
     public List<CommentTree> getCommentTreeByVid(Integer vid, Long offset, Integer type) {
         // 查询父级评论
@@ -72,6 +82,13 @@ public class CommentServiceImpl implements CommentService {
         return commentTreeList;
     }
 
+    /**
+     * 构建评论树
+     * @param comment 根评论
+     * @param start 子评论开始偏移量
+     * @param stop  子评论结束偏移量
+     * @return  单棵评论树
+     */
     private CommentTree buildCommentTree(Comment comment, Long start, Long stop) {
         CommentTree tree = new CommentTree();
         tree.setId(comment.getId());
@@ -83,16 +100,8 @@ public class CommentServiceImpl implements CommentService {
         tree.setLove(comment.getLove());
         tree.setBad(comment.getBad());
 
-        CompletableFuture<Void> userFuture = CompletableFuture.runAsync(() -> {
-            tree.setUser(userService.getUserById(comment.getUid()));
-        }, taskExecutor);
-
-        CompletableFuture<Void> toUserFuture = CompletableFuture.runAsync(() -> {
-            tree.setToUser(userService.getUserById(comment.getToUserId()));
-        }, taskExecutor);
-
-        userFuture.join();
-        toUserFuture.join();
+        tree.setUser(userService.getUserById(comment.getUid()));
+        tree.setToUser(userService.getUserById(comment.getToUserId()));
 
         // 递归查询构建子评论树
         // 这里如果是根节点的评论，则查出他的子评论； 如果不是根节点评论，则不查，只填写 User 信息。
@@ -120,9 +129,19 @@ public class CommentServiceImpl implements CommentService {
         return tree;
     }
 
+    /**
+     * 发送评论，字数不得大于2000或为空
+     * @param vid   视频id
+     * @param uid   发布者uid
+     * @param rootId    楼层id（根评论id）
+     * @param parentId  被回复的评论id
+     * @param toUserId  被回复用户uid
+     * @param content   评论内容
+     * @return  true 发送成功 false 发送失败
+     */
     @Override
-    @Transactional
-    public boolean sendComment(Integer vid, Integer uid, Integer rootId, Integer parentId, Integer toUserId, String content) {
+    public CommentTree sendComment(Integer vid, Integer uid, Integer rootId, Integer parentId, Integer toUserId, String content) {
+        if (content == null || content.length() == 0 || content.length() > 2000) return null;
         try {
             Comment comment = new Comment(
                     null,
@@ -139,22 +158,18 @@ public class CommentServiceImpl implements CommentService {
                     null
             );
             commentMapper.insert(comment);
+            // 更新视频评论 + 1
+            videoStatsService.updateStats(comment.getVid(), "comment", true, 1);
 
-            CompletableFuture<Void> videoStatsFuture = CompletableFuture.runAsync(() -> {
-                // 更新视频评论 + 1
-                videoStatsService.updateStats(comment.getVid(), "comment", true, 1);
-            }, taskExecutor);
+            CommentTree commentTree = buildCommentTree(comment, 0L, -1L);
 
-            CompletableFuture<Void> redisFuture = CompletableFuture.runAsync(() -> {
+            CompletableFuture.runAsync(() -> {
                 // 如果不是根级评论，则加入 redis 对应的 zset 中
                 if (!rootId.equals(0)) {
                     redisUtil.zset("comment_reply:" + rootId, comment.getId());
                 } else {
                     redisUtil.zset("comment_video:"+ vid, comment.getId());
                 }
-            }, taskExecutor);
-
-            CompletableFuture<Void> nettyFuture = CompletableFuture.runAsync(() -> {
                 // 表示被回复的用户收到的回复评论的 id 有序集合
                 // 如果不是回复自己
                 if(!Objects.equals(comment.getToUserId(), comment.getUid())) {
@@ -173,20 +188,22 @@ public class CommentServiceImpl implements CommentService {
                 }
             }, taskExecutor);
 
-            videoStatsFuture.join();
-            redisFuture.join();
-            nettyFuture.join();
-
-            return true;
+            return commentTree;
         } catch (Exception e) {
             log.error("Failed to send comment: " + e.getMessage(), e);
-            return false;
+            return null;
         }
     }
 
+    /**
+     * 删除评论
+     * @param id    评论id
+     * @param uid   当前用户id
+     * @param isAdmin   是否是管理员
+     * @return  响应对象
+     */
     @Override
-    @Transactional
-    public CustomResponse deleteComment(Integer id, Integer uid) {
+    public CustomResponse deleteComment(Integer id, Integer uid, boolean isAdmin) {
         CustomResponse customResponse = new CustomResponse();
         try {
             Comment comment = commentMapper.selectById(id);
@@ -196,8 +213,9 @@ public class CommentServiceImpl implements CommentService {
                 return customResponse;
             }
 
-            // 判断该用户能否删除这条评论
-            if (Objects.equals(comment.getUid(), uid)) {
+            // 判断该用户是否有权限删除这条评论
+            Video video = videoMapper.selectById(comment.getVid());
+            if (Objects.equals(comment.getUid(), uid) || isAdmin || Objects.equals(video.getUid(), uid)) {
                 // 删除评论
                 UpdateWrapper<Comment> commentWrapper = new UpdateWrapper<>();
                 commentWrapper.eq("id", comment.getId()).set("is_deleted", 1);
@@ -209,46 +227,25 @@ public class CommentServiceImpl implements CommentService {
                  */
                 if (Objects.equals(comment.getRootId(), 0)) {
                     redisUtil.zsetDelMember("comment_video:" + comment.getVid(), comment.getId());
+                    // 查询总共要减少多少评论数
+                    int count = Math.toIntExact(redisUtil.zCount("comment_reply:" + comment.getId(), 0L, Long.MAX_VALUE));
+                    redisUtil.delValue("comment_reply:" + comment.getId());
+                    videoStatsService.updateStats(comment.getVid(), "comment", false, count + 1);
                 } else {
                     redisUtil.zsetDelMember("comment_reply:" + comment.getRootId(), comment.getId());
+                    videoStatsService.updateStats(comment.getVid(), "comment", false, 1);
                 }
-
-                // 视频回复数量 - 1
-                videoStatsService.updateStats(comment.getVid(), "comment", false, 1);
 
                 customResponse.setCode(200);
                 customResponse.setMessage("删除成功!");
             } else {
-                customResponse.setCode(500);
+                customResponse.setCode(403);
                 customResponse.setMessage("你无权删除该条评论");
             }
         } catch (Exception e) {
-            log.error("Failed to delete comment: " + e.getMessage(), e);
+            log.error("删除评论失败: " + e.getMessage(), e);
             customResponse.setCode(500);
             customResponse.setMessage("删除评论失败");
-        }
-        return customResponse;
-    }
-
-    @Override
-    public CustomResponse updateComment(Integer id, Integer uid, String content) {
-        Comment comment = commentMapper.selectById(id);
-        CustomResponse customResponse = new CustomResponse();
-        if (comment == null) {
-            customResponse.setCode(500);
-            customResponse.setMessage("该条评论不存在");
-            return customResponse;
-        }
-
-        if (Objects.equals(comment.getUid(), uid)) {
-            comment.setContent(content);
-            commentMapper.updateById(comment);
-
-            customResponse.setCode(200);
-            customResponse.setMessage("修改成功");
-        } else {
-            customResponse.setCode(500);
-            customResponse.setMessage("你无权修改此评论");
         }
         return customResponse;
     }
@@ -261,7 +258,7 @@ public class CommentServiceImpl implements CommentService {
      */
     @Override
     public List<Comment> getChildCommentsByRootId(Integer rootId, Integer vid, Long start, Long stop) {
-        Set<Object> replyIds = redisUtil.zReverange("comment_reply:" + rootId, start, stop);
+        Set<Object> replyIds = redisUtil.zRange("comment_reply:" + rootId, start, stop);
 
         if (replyIds == null || replyIds.isEmpty()) return Collections.emptyList();
 
@@ -280,27 +277,42 @@ public class CommentServiceImpl implements CommentService {
      */
     @Override
     public List<Comment> getRootCommentsByVid(Integer vid, Long offset, Integer type) {
-        Set<Object> rootIdsSet = redisUtil.zReverange("comment_video:" + vid, offset, offset + 9L);
+        Set<Object> rootIdsSet;
+        if (type == 1) {
+            // 按热度排序就不能用时间分数查偏移量了，要全部查出来，后续在MySQL筛选
+            rootIdsSet = redisUtil.zReverange("comment_video:" + vid, 0L, -1L);
+        } else {
+            rootIdsSet = redisUtil.zReverange("comment_video:" + vid, offset, offset + 9L);
+        }
 
         if (rootIdsSet == null || rootIdsSet.isEmpty()) return Collections.emptyList();
 
         QueryWrapper<Comment> wrapper = new QueryWrapper<>();
         wrapper.in("id", rootIdsSet).ne("is_deleted", 1);
         if (type == 1) { // 热度
-            wrapper.orderByDesc("love");
-        } else if (type == 2) { // 时间
+            wrapper.orderByDesc("(love - bad)").last("LIMIT 10 OFFSET " + offset);
+        } else { // 时间
             wrapper.orderByDesc("create_time");
         }
-
         return commentMapper.selectList(wrapper);
     }
 
+    /**
+     * 获取更多回复评论
+     * @param id 根评论id
+     * @return  包含全部回复评论的评论树
+     */
     @Override
     public CommentTree getMoreCommentsById(Integer id) {
         Comment comment = commentMapper.selectById(id);
         return buildCommentTree(comment, 0L, -1L);
     }
 
+    /**
+     * 同时相对更新点赞和点踩
+     * @param id    评论id
+     * @param addLike   true 点赞 false 点踩
+     */
     @Override
     public void updateLikeAndDisLike(Integer id, boolean addLike) {
         UpdateWrapper<Comment> updateWrapper = new UpdateWrapper<>();
@@ -308,17 +320,24 @@ public class CommentServiceImpl implements CommentService {
             updateWrapper.setSql("love = love + 1, bad = CASE WHEN " +
                     "bad - 1 < 0 " +
                             "THEN 0 " +
-                            "ELSE bad - 1 ");
+                            "ELSE bad - 1 END");
         } else {
             updateWrapper.setSql("bad = bad + 1, love = CASE WHEN " +
                     "love - 1 < 0 " +
                     "THEN 0 " +
-                    "ELSE love - 1 ");
+                    "ELSE love - 1 END");
         }
 
         commentMapper.update(null, updateWrapper);
     }
 
+    /**
+     * 单独更新点赞或点踩
+     * @param id    评论id
+     * @param column    "love" 点赞 "bad" 点踩
+     * @param increase  true 增加 false 减少
+     * @param count     更改数量
+     */
     @Override
     public void updateComment(Integer id, String column, boolean increase, Integer count) {
         UpdateWrapper<Comment> updateWrapper = new UpdateWrapper<>();

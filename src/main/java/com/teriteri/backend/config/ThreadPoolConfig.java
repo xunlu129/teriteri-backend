@@ -15,7 +15,7 @@ public class ThreadPoolConfig {
     public Executor asyncServiceExecutor() {
         ThreadPoolTaskExecutor executor = new ThreadPoolTaskExecutor();
         //设置核心线程数
-        executor.setCorePoolSize(10);
+        executor.setCorePoolSize(20);
         //设置最大线程数
         executor.setMaxPoolSize(100);
         //配置队列大小

@@ -13,6 +13,8 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import java.util.Arrays;
+import java.util.HashSet;
+import java.util.List;
 import java.util.Set;
 import java.util.stream.Collectors;
 
@@ -30,6 +32,11 @@ public class FavoriteVideoController {
     @Autowired
     private UserVideoService userVideoService;
 
+    /**
+     * 获取用户收藏了该视频的收藏夹列表
+     * @param vid   视频id
+     * @return  收藏了该视频的收藏夹列表
+     */
     @GetMapping("/video/collected-fids")
     public CustomResponse getCollectedFids(@RequestParam("vid") Integer vid) {
         Integer uid = currentUser.getUserId();
@@ -85,7 +92,9 @@ public class FavoriteVideoController {
      * @return  fid集合
      */
     private Set<Integer> findFidsOfUserFavorites(Integer uid) {
-        return favoriteService.getFavorites(uid, true).stream()
+        List<Favorite> list = favoriteService.getFavorites(uid, true);
+        if (list == null) return new HashSet<>();
+        return list.stream()
                 .map(Favorite::getFid)
                 .collect(Collectors.toSet());
     }

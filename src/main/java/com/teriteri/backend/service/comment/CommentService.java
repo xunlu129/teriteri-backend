@@ -9,11 +9,9 @@ import java.util.List;
 public interface CommentService {
     List<CommentTree> getCommentTreeByVid(Integer vid, Long offset, Integer type);
 
-    boolean sendComment(Integer vid, Integer uid, Integer rootId, Integer parentId, Integer toUserId, String content);
+    CommentTree sendComment(Integer vid, Integer uid, Integer rootId, Integer parentId, Integer toUserId, String content);
 
-    CustomResponse deleteComment(Integer id, Integer uid);
-
-    CustomResponse updateComment(Integer id, Integer uid, String content);
+    CustomResponse deleteComment(Integer id, Integer uid, boolean isAdmin);
 
     List<Comment> getChildCommentsByRootId(Integer rootId, Integer vid, Long start, Long stop);
 
