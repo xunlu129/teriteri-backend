@@ -1,6 +1,5 @@
 package com.teriteri.backend.controller;
 
-import com.teriteri.backend.pojo.Comment;
 import com.teriteri.backend.pojo.CommentTree;
 import com.teriteri.backend.pojo.CustomResponse;
 import com.teriteri.backend.service.comment.CommentService;

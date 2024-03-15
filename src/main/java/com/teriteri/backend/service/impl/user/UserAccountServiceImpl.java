@@ -17,8 +17,6 @@ import com.teriteri.backend.utils.ESUtil;
 import com.teriteri.backend.utils.JwtUtil;
 import com.teriteri.backend.utils.RedisUtil;
 import io.netty.channel.*;
-import io.netty.channel.group.ChannelGroupFutureListener;
-import io.netty.util.concurrent.PromiseCombiner;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;

@@ -17,8 +17,7 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Objects;
 import java.util.Set;
-import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.Executor;
+import java.util.concurrent.*;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
@@ -96,21 +95,10 @@ public class UserServiceImpl implements UserService {
             return userDTO;
         }
 
-        // 异步执行每个视频数据统计的查询任务
-        List<CompletableFuture<VideoStats>> futureList = set.stream()
-                .map(vid ->
-                        CompletableFuture.supplyAsync(
-                                () -> videoStatsService.getVideoStatsById((Integer) vid),
-                                taskExecutor))
+        // 并发执行每个视频数据统计的查询任务
+        List<VideoStats> list = set.stream().parallel()
+                .map(vid -> videoStatsService.getVideoStatsById((Integer) vid))
                 .collect(Collectors.toList());
-
-        // 等待所有异步任务执行完成
-        CompletableFuture<Void> allOf = CompletableFuture.allOf(futureList.toArray(new CompletableFuture[0]));
-
-        // 获取数据统计列表
-        List<VideoStats> list = allOf.thenApplyAsync(v -> futureList.stream()
-                .map(CompletableFuture::join)
-                .collect(Collectors.toList())).join();
 
         int video = list.size(), love = 0, play = 0;
         for (VideoStats videoStats : list) {
@@ -156,21 +144,10 @@ public class UserServiceImpl implements UserService {
                         return Stream.of(userDTO);
                     }
 
-                    // 异步执行每个视频数据统计的查询任务
-                    List<CompletableFuture<VideoStats>> futureList = set.stream()
-                            .map(vid ->
-                                    CompletableFuture.supplyAsync(
-                                            () -> videoStatsService.getVideoStatsById((Integer) vid),
-                                            taskExecutor))
+                    // 并发执行每个视频数据统计的查询任务
+                    List<VideoStats> videoStatsList = set.stream().parallel()
+                            .map(vid -> videoStatsService.getVideoStatsById((Integer) vid))
                             .collect(Collectors.toList());
-
-                    // 等待所有异步任务执行完成
-                    CompletableFuture<Void> allOf = CompletableFuture.allOf(futureList.toArray(new CompletableFuture[0]));
-
-                    // 获取数据统计列表
-                    List<VideoStats> videoStatsList = allOf.thenApplyAsync(v -> futureList.stream()
-                            .map(CompletableFuture::join)
-                            .collect(Collectors.toList())).join();
 
                     int video = videoStatsList.size(), love = 0, play = 0;
                     for (VideoStats videoStats : videoStatsList) {

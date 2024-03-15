@@ -8,7 +8,6 @@ import com.teriteri.backend.mapper.VideoMapper;
 import com.teriteri.backend.pojo.IMResponse;
 import com.teriteri.backend.pojo.UserVideo;
 import com.teriteri.backend.pojo.Video;
-import com.teriteri.backend.pojo.VideoStats;
 import com.teriteri.backend.service.message.MsgUnreadService;
 import com.teriteri.backend.service.video.UserVideoService;
 import com.teriteri.backend.service.video.VideoStatsService;

@@ -16,7 +16,6 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
 
 import java.util.*;
 import java.util.concurrent.CompletableFuture;
@@ -61,21 +60,10 @@ public class CommentServiceImpl implements CommentService {
         // 查询父级评论
         List<Comment> rootComments = getRootCommentsByVid(vid, offset, type);
 
-        // 异步执行每个根级评论的子评论查询任务
-        List<CompletableFuture<CommentTree>> futureList = rootComments.stream()
-                .map(rootComment ->
-                        CompletableFuture.supplyAsync(
-                                () -> buildCommentTree(rootComment, 0L, 2L),
-                                taskExecutor))
+        // 并行执行每个根级评论的子评论查询任务
+        List<CommentTree> commentTreeList = rootComments.stream().parallel()
+                .map(rootComment ->buildCommentTree(rootComment, 0L, 2L))
                 .collect(Collectors.toList());
-
-        // 等待所有异步任务执行完成
-        CompletableFuture<Void> allOf = CompletableFuture.allOf(futureList.toArray(new CompletableFuture[0]));
-
-        // 获取评论树
-        List<CommentTree> commentTreeList = allOf.thenApplyAsync(v -> futureList.stream()
-                .map(CompletableFuture::join)
-                .collect(Collectors.toList())).join();
 
 //        System.out.println(commentTreeList);
 
@@ -111,18 +99,10 @@ public class CommentServiceImpl implements CommentService {
 
             List<Comment> childComments = getChildCommentsByRootId(comment.getId(), comment.getVid(), start, stop);
 
-            List<CompletableFuture<CommentTree>> futureList = new ArrayList<>();
-            for (Comment childComment : childComments) {
-                CompletableFuture<CommentTree> future = CompletableFuture.supplyAsync(
-                        () -> buildCommentTree(childComment, start, stop),
-                        taskExecutor);
-                futureList.add(future);
-            }
+            List<CommentTree> childTreeList = childComments.stream().parallel()
+                            .map(childComment -> buildCommentTree(childComment, start, stop))
+                                    .collect(Collectors.toList());
 
-            CompletableFuture<Void> allOf = CompletableFuture.allOf(futureList.toArray(new CompletableFuture[0]));
-            allOf.join();
-
-            List<CommentTree> childTreeList = futureList.stream().map(CompletableFuture::join).collect(Collectors.toList());
             tree.setReplies(childTreeList);
         }
 

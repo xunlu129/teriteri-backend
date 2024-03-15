@@ -94,6 +94,8 @@ public class VideoServiceImpl implements VideoService {
         Stream<Video> videoStream = videoList.stream();
         List<Map<String, Object>> mapList = videoStream.parallel() // 利用parallel()并行处理
                 .map(video -> {
+//                    long start = System.currentTimeMillis();
+//                    System.out.println("================ 开始查询 " + video.getVid() + " 号视频相关信息 ===============   当前时间 " + start);
                     Map<String, Object> map = new HashMap<>();
                     map.put("video", video);
 
@@ -109,6 +111,8 @@ public class VideoServiceImpl implements VideoService {
                     // 使用join()等待全部任务完成
                     userFuture.join();
                     categoryFuture.join();
+//                    long end = System.currentTimeMillis();
+//                    System.out.println("================ 结束查询 " + video.getVid() + " 号视频相关信息 ===============   当前时间 " + end + "   耗时 " + (end - start));
 
                     return map;
                 })
