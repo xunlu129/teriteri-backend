@@ -1,5 +1,7 @@
 package com.teriteri.backend.service.search;
 
+import com.teriteri.backend.pojo.HotSearch;
+
 import java.util.List;
 
 public interface SearchService {
@@ -22,7 +24,7 @@ public interface SearchService {
      * 获取热搜词条
      * @return  热搜词列表
      */
-    List<String> getHotSearch();
+    List<HotSearch> getHotSearch();
 
     /**
      * 获取各种类型相关数据数量  视频&用户

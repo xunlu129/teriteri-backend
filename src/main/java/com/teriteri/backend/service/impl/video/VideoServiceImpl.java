@@ -17,7 +17,9 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
+import java.io.IOException;
 import java.util.*;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CopyOnWriteArrayList;
@@ -216,7 +218,8 @@ public class VideoServiceImpl implements VideoService {
      * @return 无data返回，仅返回响应信息
      */
     @Override
-    public CustomResponse updateVideoStatus(Integer vid, Integer status) {
+    @Transactional
+    public CustomResponse updateVideoStatus(Integer vid, Integer status) throws IOException {
         CustomResponse customResponse = new CustomResponse();
         Integer userId = currentUser.getUserId();
         if (status == 1 || status == 2) {
@@ -241,11 +244,11 @@ public class VideoServiceImpl implements VideoService {
                 int flag = videoMapper.update(null, updateWrapper);
                 if (flag > 0) {
                     // 更新成功
+                    esUtil.updateVideo(video);  // 更新ES视频文档
                     redisUtil.delMember("video_status:" + lastStatus, vid);     // 从旧状态移除
                     redisUtil.addMember("video_status:1", vid);     // 加入新状态
                     redisUtil.zset("user_video_upload:" + video.getUid(), video.getVid());
                     redisUtil.delValue("video:" + vid);     // 删除旧的视频信息
-                    CompletableFuture.runAsync(() -> esUtil.updateVideo(video), taskExecutor);  // 更新ES视频文档
                     return customResponse;
                 } else {
                     // 更新失败，处理错误情况
@@ -271,10 +274,10 @@ public class VideoServiceImpl implements VideoService {
                 int flag = videoMapper.update(null, updateWrapper);
                 if (flag > 0) {
                     // 更新成功
+                    esUtil.updateVideo(video);  // 更新ES视频文档
                     redisUtil.delMember("video_status:" + lastStatus, vid);     // 从旧状态移除
                     redisUtil.addMember("video_status:2", vid);     // 加入新状态
                     redisUtil.delValue("video:" + vid);     // 删除旧的视频信息
-                    CompletableFuture.runAsync(() -> esUtil.updateVideo(video), taskExecutor);  // 更新ES视频文档
                     return customResponse;
                 } else {
                     // 更新失败，处理错误情况
@@ -303,13 +306,13 @@ public class VideoServiceImpl implements VideoService {
                 int flag = videoMapper.update(null, updateWrapper);
                 if (flag > 0) {
                     // 更新成功
+                    esUtil.deleteVideo(vid);
                     redisUtil.delMember("video_status:" + lastStatus, vid);     // 从旧状态移除
                     redisUtil.delValue("video:" + vid);     // 删除旧的视频信息
                     redisUtil.zsetDelMember("user_video_upload:" + video.getUid(), video.getVid());
-                    // 搞个异步线程去删除OSS的源文件和ES上的文档
+                    // 搞个异步线程去删除OSS的源文件
                     CompletableFuture.runAsync(() -> ossUtil.deleteFiles(videoPrefix), taskExecutor);
                     CompletableFuture.runAsync(() -> ossUtil.deleteFiles(coverPrefix), taskExecutor);
-                    CompletableFuture.runAsync(() -> esUtil.deleteVideo(vid), taskExecutor);
                     return customResponse;
                 } else {
                     // 更新失败，处理错误情况

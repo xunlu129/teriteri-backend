@@ -27,47 +27,41 @@ public class ESUtil {
     /**
      * 添加视频文档
      * @param video
-     * @return
      */
-    public boolean addVideo(Video video) {
+    public void addVideo(Video video) throws IOException {
         try {
             ESVideo esVideo = new ESVideo(video.getVid(), video.getUid(), video.getTitle(), video.getMcId(), video.getScId(), video.getTags(), video.getStatus());
             client.index(i -> i.index("video").id(esVideo.getVid().toString()).document(esVideo));
-            return true;
         } catch (IOException e) {
             log.error("添加视频文档到ElasticSearch时出错了：" + e);
-            return false;
+            throw e;
         }
     }
 
     /**
      * 删除视频文档
      * @param vid
-     * @return
      */
-    public boolean deleteVideo(Integer vid) {
+    public void deleteVideo(Integer vid) throws IOException {
         try {
             client.delete(d -> d.index("video").id(vid.toString()));
-            return true;
         } catch (IOException e) {
             log.error("删除ElasticSearch视频文档时失败了：" + e);
-            return false;
+            throw e;
         }
     }
 
     /**
      * 更新视频文档
      * @param video
-     * @return
      */
-    public boolean updateVideo(Video video) {
+    public void updateVideo(Video video) throws IOException {
         try {
             ESVideo esVideo = new ESVideo(video.getVid(), video.getUid(), video.getTitle(), video.getMcId(), video.getScId(), video.getTags(), video.getStatus());
             client.update(u -> u.index("video").id(video.getVid().toString()).doc(esVideo), ESVideo.class);
-            return true;
         } catch (IOException e) {
             log.error("更新ElasticSearch视频文档时出错了：" + e);
-            return false;
+            throw e;
         }
     }
 
@@ -130,47 +124,41 @@ public class ESUtil {
     /**
      * 添加用户文档
      * @param user
-     * @return
      */
-    public boolean addUser(User user) {
+    public void addUser(User user) throws IOException {
         try {
             ESUser esUser = new ESUser(user.getUid(), user.getNickname());
             client.index(i -> i.index("user").id(esUser.getUid().toString()).document(esUser));
-            return true;
         } catch (IOException e) {
             log.error("添加用户文档到elasticsearch时出错了：" + e);
-            return false;
+            throw e;
         }
     }
 
     /**
      * 删除视频文档
      * @param uid
-     * @return
      */
-    public boolean deleteUser(Integer uid) {
+    public void deleteUser(Integer uid) throws IOException {
         try {
             client.delete(d -> d.index("user").id(uid.toString()));
-            return true;
         } catch (IOException e) {
             log.error("删除ElasticSearch用户文档时失败了：" + e);
-            return false;
+            throw e;
         }
     }
 
     /**
      * 更新用户文档
      * @param user
-     * @return
      */
-    public boolean updateUser(User user) {
+    public void updateUser(User user) throws IOException {
         try {
             ESUser esUser = new ESUser(user.getUid(), user.getNickname());
             client.update(u -> u.index("user").id(user.getUid().toString()).doc(esUser), ESUser.class);
-            return true;
         } catch (IOException e) {
             log.error("更新ElasticSearch用户文档时出错了：" + e);
-            return false;
+            throw e;
         }
     }
 
@@ -218,17 +206,15 @@ public class ESUtil {
 
     /**
      * 添加搜索词文档
+     *
      * @param text
-     * @return
      */
-    public boolean addSearchWord(String text) {
+    public void addSearchWord(String text) {
         try {
             ESSearchWord esSearchWord = new ESSearchWord(text);
             client.index(i -> i.index("search_word").document(esSearchWord));
-            return true;
         } catch (IOException e) {
             log.error("添加搜索词文档到elasticsearch时出错了：" + e);
-            return false;
         }
     }
 

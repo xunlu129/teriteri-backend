@@ -2,11 +2,10 @@ package com.teriteri.backend.controller;
 
 import com.teriteri.backend.pojo.CustomResponse;
 import com.teriteri.backend.service.user.UserAccountService;
+import com.teriteri.backend.service.user.UserService;
+import com.teriteri.backend.service.utils.CurrentUser;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.RequestBody;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.*;
 
 import java.util.Map;
 
@@ -15,6 +14,12 @@ public class UserAccountController {
 
     @Autowired
     private UserAccountService userAccountService;
+
+    @Autowired
+    private UserService userService;
+
+    @Autowired
+    private CurrentUser currentUser;
 
     /**
      * 注册接口
@@ -27,7 +32,15 @@ public class UserAccountController {
         String username = map.get("username");
         String password = map.get("password");
         String confirmedPassword = map.get("confirmedPassword");
-        return userAccountService.register(username, password, confirmedPassword);
+        try {
+            return userAccountService.register(username, password, confirmedPassword);
+        } catch (Exception e) {
+            e.printStackTrace();
+            CustomResponse customResponse = new CustomResponse();
+            customResponse.setCode(500);
+            customResponse.setMessage("特丽丽被玩坏了");
+            return customResponse;
+        }
     }
 
     /**
@@ -86,5 +99,26 @@ public class UserAccountController {
     @GetMapping("/admin/account/logout")
     public void adminLogout() {
         userAccountService.adminLogout();
+    }
+
+    @PostMapping("/user/info/update")
+    public CustomResponse updateUserInfo(@RequestParam("nickname") String nickname,
+                                         @RequestParam("description") String desc,
+                                         @RequestParam("gender") Integer gender) {
+        Integer uid = currentUser.getUserId();
+        try {
+            return userService.updateUserInfo(uid, nickname, desc, gender);
+        } catch (Exception e) {
+            e.printStackTrace();
+            CustomResponse customResponse = new CustomResponse();
+            customResponse.setCode(500);
+            customResponse.setMessage("特丽丽被玩坏了");
+            return customResponse;
+        }
+    }
+
+    @PostMapping("/user/password/update")
+    public CustomResponse updatePassword(@RequestParam("pw") String pw, @RequestParam("npw") String npw) {
+        return userAccountService.updatePassword(pw, npw);
     }
 }

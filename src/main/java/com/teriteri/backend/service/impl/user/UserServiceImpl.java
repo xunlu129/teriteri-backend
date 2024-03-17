@@ -1,18 +1,23 @@
 package com.teriteri.backend.service.impl.user;
 
 import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
+import com.baomidou.mybatisplus.core.conditions.update.UpdateWrapper;
 import com.teriteri.backend.mapper.UserMapper;
+import com.teriteri.backend.pojo.CustomResponse;
 import com.teriteri.backend.pojo.User;
 import com.teriteri.backend.pojo.VideoStats;
 import com.teriteri.backend.pojo.dto.UserDTO;
 import com.teriteri.backend.service.user.UserService;
 import com.teriteri.backend.service.video.VideoStatsService;
+import com.teriteri.backend.utils.ESUtil;
 import com.teriteri.backend.utils.RedisUtil;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
+import java.io.IOException;
 import java.util.Collections;
 import java.util.List;
 import java.util.Objects;
@@ -32,6 +37,9 @@ public class UserServiceImpl implements UserService {
 
     @Autowired
     private RedisUtil redisUtil;
+
+    @Autowired
+    private ESUtil esUtil;
 
     @Autowired
     @Qualifier("taskExecutor")
@@ -67,6 +75,7 @@ public class UserServiceImpl implements UserService {
             userDTO.setGender(2);
             userDTO.setDescription("-");
             userDTO.setExp(0);
+            userDTO.setCoin((double) 0);
             userDTO.setVip(0);
             userDTO.setAuth(0);
             userDTO.setVideoCount(0);
@@ -82,6 +91,7 @@ public class UserServiceImpl implements UserService {
         userDTO.setGender(user.getGender());
         userDTO.setDescription(user.getDescription());
         userDTO.setExp(user.getExp());
+        userDTO.setCoin(user.getCoin());
         userDTO.setVip(user.getVip());
         userDTO.setAuth(user.getAuth());
         userDTO.setAuthMsg(user.getAuthMsg());
@@ -133,6 +143,7 @@ public class UserServiceImpl implements UserService {
                             user.getGender(),
                             user.getDescription(),
                             user.getExp(),
+                            user.getCoin(),
                             user.getVip(),
                             user.getState(),
                             user.getAuth(),
@@ -160,5 +171,42 @@ public class UserServiceImpl implements UserService {
                     return Stream.of(userDTO);
                 }
         ).collect(Collectors.toList());
+    }
+
+    @Override
+    @Transactional
+    public CustomResponse updateUserInfo(Integer uid, String nickname, String desc, Integer gender) throws IOException {
+        CustomResponse customResponse = new CustomResponse();
+        if (nickname == null || nickname.trim().length() == 0) {
+            customResponse.setCode(500);
+            customResponse.setMessage("昵称不能为空");
+            return customResponse;
+        }
+        if (nickname.length() > 24 || desc.length() > 100) {
+            customResponse.setCode(500);
+            customResponse.setMessage("输入字符过长");
+            return customResponse;
+        }
+        // 查重
+        QueryWrapper<User> queryWrapper = new QueryWrapper<>();
+        queryWrapper.eq("nickname", nickname).ne("uid", uid);
+        User user = userMapper.selectOne(queryWrapper);
+        if (user != null) {
+            customResponse.setCode(500);
+            customResponse.setMessage("该昵称已被其他用户占用");
+            return customResponse;
+        }
+        UpdateWrapper<User> updateWrapper = new UpdateWrapper<>();
+        updateWrapper.eq("uid", uid)
+                .set("nickname", nickname)
+                .set("description", desc)
+                .set("gender", gender);
+        userMapper.update(null, updateWrapper);
+        User new_user = new User();
+        new_user.setUid(uid);
+        new_user.setNickname(nickname);
+        esUtil.updateUser(new_user);
+        redisUtil.delValue("user:" + uid);
+        return customResponse;
     }
 }

@@ -60,7 +60,6 @@ public class SecurityConfig {
                 UserDetails loginUser = userDetailsService.loadUserByUsername(username);
                 if (Objects.isNull(loginUser) || !passwordEncoder().matches(password, loginUser.getPassword())) {
                     // 密码匹配失败抛出异常
-                    log.error("访问拒绝：用户名或密码错误！");
                     throw new BadCredentialsException("访问拒绝：用户名或密码错误！");
                 }
 

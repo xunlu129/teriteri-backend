@@ -35,9 +35,17 @@ public class RedisUtil {
     @Data
     @AllArgsConstructor
     @NoArgsConstructor
-    public static class ZSetObject {
+    public static class ZObjTime {
         private Object member;
         private Date time;
+    }
+
+    @Data
+    @AllArgsConstructor
+    @NoArgsConstructor
+    public static class ZObjScore {
+        private Object member;
+        private Double score;
     }
 
     // 通用 相关操作 begin -----------------------------------------------------------------------------------------------
@@ -129,7 +137,7 @@ public class RedisUtil {
      * @param stop
      * @return
      */
-    public Set<Object> zRange(String key, Long start, Long stop) {
+    public Set<Object> zRange(String key, long start, long stop) {
         return redisTemplate.opsForZSet().range(key, start, stop);
     }
 
@@ -140,8 +148,25 @@ public class RedisUtil {
      * @param stop
      * @return
      */
-    public Set<Object> zReverange(String key, Long start, Long stop) {
+    public Set<Object> zReverange(String key, long start, long stop) {
         return redisTemplate.opsForZSet().reverseRange(key, start, stop);
+    }
+
+    /**
+     * 按时间从大到小取数据携带分数
+     * @param key
+     * @param start
+     * @param end
+     * @return
+     */
+    public List<ZObjScore> zReverangeWithScores(String key, long start, long end) {
+        Set<ZSetOperations.TypedTuple<Object>> result = redisTemplate.opsForZSet().reverseRangeWithScores(key, start, end);
+        if (result == null) return null;
+        List<ZObjScore> list = new ArrayList<>();
+        for (ZSetOperations.TypedTuple<Object> tuple : result) {
+            list.add(new ZObjScore(tuple.getValue(), tuple.getScore()));
+        }
+        return list;
     }
 
     /**
@@ -151,14 +176,14 @@ public class RedisUtil {
      * @param end
      * @return
      */
-    public Set<ZSetObject> zReverangeWithTime(String key, Long start, Long end) {
+    public List<ZObjTime> zReverangeWithTime(String key, long start, long end) {
         Set<ZSetOperations.TypedTuple<Object>> result = redisTemplate.opsForZSet().reverseRangeWithScores(key, start, end);
         if (result == null) return null;
-        Set<ZSetObject> set = new HashSet<>();
+        List<ZObjTime> list = new ArrayList<>();
         for (ZSetOperations.TypedTuple<Object> tuple : result) {
-            set.add(new ZSetObject(tuple.getValue(), new Date(tuple.getScore().longValue())));
+            list.add(new ZObjTime(tuple.getValue(), new Date(tuple.getScore().longValue())));
         }
-        return set;
+        return list;
     }
 
     /**
@@ -190,23 +215,38 @@ public class RedisUtil {
      * @param key
      * @param object
      */
-    public boolean zsetWithScore(String key, Object object, long score){
+    public boolean zsetWithScore(String key, Object object, double score){
         return redisTemplate.opsForZSet().add(key, object, score);
     }
 
     /**
      * 批量存入数据到sorted set
      * @param key
-     * @param zSetObjects   自定义的类 RedisUtil.ZSetObject 的集合或列表
+     * @param zObjTimes   自定义的类 RedisUtil.ZObjTime 的集合或列表
      */
-    public long zsetOfCollection(String key, Collection<ZSetObject> zSetObjects) {
-        return redisTemplate.opsForZSet().add(key, convertToTupleSet(zSetObjects));
+    public Long zsetOfCollectionByTime(String key, Collection<ZObjTime> zObjTimes) {
+        return redisTemplate.opsForZSet().add(key, convertToTupleSetByTime(zObjTimes));
     }
 
     // 将ZSetObject集合转换为Tuple集合
-    private Set<ZSetOperations.TypedTuple<Object>> convertToTupleSet(Collection<ZSetObject> zSetObjects) {
-        return zSetObjects.stream()
-                .map(zSetObject -> new DefaultTypedTuple<>(zSetObject.getMember(), (double) zSetObject.getTime().getTime()))
+    private Set<ZSetOperations.TypedTuple<Object>> convertToTupleSetByTime(Collection<ZObjTime> zObjTimes) {
+        return zObjTimes.stream()
+                .map(zObjTime -> new DefaultTypedTuple<>(zObjTime.getMember(), (double) zObjTime.getTime().getTime()))
+                .collect(Collectors.toSet());
+    }
+
+    /**
+     * 批量存入数据到sorted set
+     * @param key
+     * @param zObjScores   自定义的类 RedisUtil.ZObjScores 的集合或列表
+     */
+    public Long zsetOfCollectionByScore(String key, Collection<ZObjScore> zObjScores) {
+        return redisTemplate.opsForZSet().add(key, convertToTupleSetByScore(zObjScores));
+    }
+
+    private Set<ZSetOperations.TypedTuple<Object>> convertToTupleSetByScore(Collection<ZObjScore> zObjScores) {
+        return zObjScores.stream()
+                .map(zObjScore -> new DefaultTypedTuple<>(zObjScore.getMember(), zObjScore.getScore()))
                 .collect(Collectors.toSet());
     }
 
@@ -219,6 +259,15 @@ public class RedisUtil {
      */
     public long zCount(String key, long min, long max){
         return redisTemplate.opsForZSet().count(key, min, max);
+    }
+
+    /**
+     * 获取整个集合元素个数
+     * @param key
+     * @return
+     */
+    public Long zCard(String key) {
+        return redisTemplate.opsForZSet().zCard(key);
     }
 
     /**
@@ -248,7 +297,7 @@ public class RedisUtil {
      * @param score
      * @return
      */
-    public Double zincrby(String key, Object value, long score) {
+    public Double zincrby(String key, Object value, double score) {
         return redisTemplate.opsForZSet().incrementScore(key, value, score);
     }
 
@@ -266,9 +315,9 @@ public class RedisUtil {
     public Boolean zsetByLimit(String key, Object value, Integer limit) {
         Boolean result = this.zset(key, value);
         // 存入数据后，查询zset中的数量
-        Long count = redisTemplate.opsForZSet().zCard(key);
-        // 如果数量大于limit的两倍，则进行清除操作，清除之前的数据
-        if (count > limit * 2) {
+        Long count = this.zCard(key);
+        // 如果数量大于limit，则进行清除操作，清除之前的数据
+        if (count != null && count > limit) {
             redisTemplate.opsForZSet().removeRange(key, 0, count-limit-1);
         }
         return result;

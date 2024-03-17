@@ -16,6 +16,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.util.*;
 import java.util.concurrent.CompletableFuture;
@@ -94,7 +95,7 @@ public class CommentServiceImpl implements CommentService {
         // 递归查询构建子评论树
         // 这里如果是根节点的评论，则查出他的子评论； 如果不是根节点评论，则不查，只填写 User 信息。
         if (comment.getRootId() == 0) {
-            long count = redisUtil.zCount("comment_reply:" + comment.getId(), 0L, Long.MAX_VALUE);
+            long count = redisUtil.zCard("comment_reply:" + comment.getId());
             tree.setCount(count);
 
             List<Comment> childComments = getChildCommentsByRootId(comment.getId(), comment.getVid(), start, stop);
@@ -120,29 +121,30 @@ public class CommentServiceImpl implements CommentService {
      * @return  true 发送成功 false 发送失败
      */
     @Override
+    @Transactional
     public CommentTree sendComment(Integer vid, Integer uid, Integer rootId, Integer parentId, Integer toUserId, String content) {
         if (content == null || content.length() == 0 || content.length() > 2000) return null;
+        Comment comment = new Comment(
+                null,
+                vid,
+                uid,
+                rootId,
+                parentId,
+                toUserId,
+                content,
+                0,
+                0,
+                new Date(),
+                null,
+                null
+        );
+        commentMapper.insert(comment);
+        // 更新视频评论 + 1
+        videoStatsService.updateStats(comment.getVid(), "comment", true, 1);
+
+        CommentTree commentTree = buildCommentTree(comment, 0L, -1L);
+
         try {
-            Comment comment = new Comment(
-                    null,
-                    vid,
-                    uid,
-                    rootId,
-                    parentId,
-                    toUserId,
-                    content,
-                    0,
-                    0,
-                    new Date(),
-                    null,
-                    null
-            );
-            commentMapper.insert(comment);
-            // 更新视频评论 + 1
-            videoStatsService.updateStats(comment.getVid(), "comment", true, 1);
-
-            CommentTree commentTree = buildCommentTree(comment, 0L, -1L);
-
             CompletableFuture.runAsync(() -> {
                 // 如果不是根级评论，则加入 redis 对应的 zset 中
                 if (!rootId.equals(0)) {
@@ -167,12 +169,12 @@ public class CommentServiceImpl implements CommentService {
                     }
                 }
             }, taskExecutor);
-
-            return commentTree;
         } catch (Exception e) {
-            log.error("Failed to send comment: " + e.getMessage(), e);
-            return null;
+            log.error("发送评论过程中出现一点差错");
+            e.printStackTrace();
         }
+
+        return commentTree;
     }
 
     /**
@@ -183,49 +185,44 @@ public class CommentServiceImpl implements CommentService {
      * @return  响应对象
      */
     @Override
+    @Transactional
     public CustomResponse deleteComment(Integer id, Integer uid, boolean isAdmin) {
         CustomResponse customResponse = new CustomResponse();
-        try {
-            Comment comment = commentMapper.selectById(id);
-            if (comment == null) {
-                customResponse.setCode(404);
-                customResponse.setMessage("该条评论不存在!");
-                return customResponse;
-            }
+        Comment comment = commentMapper.selectById(id);
+        if (comment == null) {
+            customResponse.setCode(404);
+            customResponse.setMessage("该条评论不存在!");
+            return customResponse;
+        }
 
-            // 判断该用户是否有权限删除这条评论
-            Video video = videoMapper.selectById(comment.getVid());
-            if (Objects.equals(comment.getUid(), uid) || isAdmin || Objects.equals(video.getUid(), uid)) {
-                // 删除评论
-                UpdateWrapper<Comment> commentWrapper = new UpdateWrapper<>();
-                commentWrapper.eq("id", comment.getId()).set("is_deleted", 1);
-                commentMapper.update(null, commentWrapper);
+        // 判断该用户是否有权限删除这条评论
+        Video video = videoMapper.selectById(comment.getVid());
+        if (Objects.equals(comment.getUid(), uid) || isAdmin || Objects.equals(video.getUid(), uid)) {
+            // 删除评论
+            UpdateWrapper<Comment> commentWrapper = new UpdateWrapper<>();
+            commentWrapper.eq("id", comment.getId()).set("is_deleted", 1);
+            commentMapper.update(null, commentWrapper);
 
-                /*
-                 如果该评论是根节点评论，则删掉其所有回复。
-                 如果不是根节点评论，则将他所在的 comment_reply(zset) 中的 comment_id 删掉
-                 */
-                if (Objects.equals(comment.getRootId(), 0)) {
-                    redisUtil.zsetDelMember("comment_video:" + comment.getVid(), comment.getId());
-                    // 查询总共要减少多少评论数
-                    int count = Math.toIntExact(redisUtil.zCount("comment_reply:" + comment.getId(), 0L, Long.MAX_VALUE));
-                    redisUtil.delValue("comment_reply:" + comment.getId());
-                    videoStatsService.updateStats(comment.getVid(), "comment", false, count + 1);
-                } else {
-                    redisUtil.zsetDelMember("comment_reply:" + comment.getRootId(), comment.getId());
-                    videoStatsService.updateStats(comment.getVid(), "comment", false, 1);
-                }
-
-                customResponse.setCode(200);
-                customResponse.setMessage("删除成功!");
+            /*
+             如果该评论是根节点评论，则删掉其所有回复。
+             如果不是根节点评论，则将他所在的 comment_reply(zset) 中的 comment_id 删掉
+             */
+            if (Objects.equals(comment.getRootId(), 0)) {
+                // 查询总共要减少多少评论数
+                int count = Math.toIntExact(redisUtil.zCard("comment_reply:" + comment.getId()));
+                videoStatsService.updateStats(comment.getVid(), "comment", false, count + 1);
+                redisUtil.zsetDelMember("comment_video:" + comment.getVid(), comment.getId());
+                redisUtil.delValue("comment_reply:" + comment.getId());
             } else {
-                customResponse.setCode(403);
-                customResponse.setMessage("你无权删除该条评论");
+                videoStatsService.updateStats(comment.getVid(), "comment", false, 1);
+                redisUtil.zsetDelMember("comment_reply:" + comment.getRootId(), comment.getId());
             }
-        } catch (Exception e) {
-            log.error("删除评论失败: " + e.getMessage(), e);
-            customResponse.setCode(500);
-            customResponse.setMessage("删除评论失败");
+
+            customResponse.setCode(200);
+            customResponse.setMessage("删除成功!");
+        } else {
+            customResponse.setCode(403);
+            customResponse.setMessage("你无权删除该条评论");
         }
         return customResponse;
     }

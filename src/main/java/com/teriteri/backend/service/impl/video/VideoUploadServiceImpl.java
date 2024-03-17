@@ -18,6 +18,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.io.File;
@@ -168,7 +169,7 @@ public class VideoUploadServiceImpl implements VideoUploadService {
      * @param cover 封面图片文件
      * @param videoUploadInfoDTO 存放投稿信息的 VideoUploadInfo 对象
      * @return  CustomResponse对象
-     * @throws JsonProcessingException
+     * @throws IOException
      */
     @Override
     public CustomResponse addVideo(MultipartFile cover, VideoUploadInfoDTO videoUploadInfoDTO) throws IOException {
@@ -218,7 +219,8 @@ public class VideoUploadServiceImpl implements VideoUploadService {
             try {
                 mergeChunks(videoUploadInfoDTO);
             } catch (IOException e) {
-                throw new RuntimeException(e);
+                log.error("合并视频写库时出错了");
+                e.printStackTrace();
             }
         }, taskExecutor);
 
@@ -229,6 +231,7 @@ public class VideoUploadServiceImpl implements VideoUploadService {
      * 合并分片并将投稿信息写入数据库
      * @param vui 存放投稿信息的 VideoUploadInfo 对象
      */
+    @Transactional
     public void mergeChunks(VideoUploadInfoDTO vui) throws IOException {
         String url; // 视频最终的URL
 
@@ -299,22 +302,13 @@ public class VideoUploadServiceImpl implements VideoUploadService {
                 null
         );
         videoMapper.insert(video);
-        addVideoStats(video);
-
-        // 其他逻辑 （发送消息通知写库成功）
-    }
-
-    /**
-     * 启用多线程将新视频和统计数据写库并添加到redis和elasticsearch
-     * @param video
-     */
-    public void addVideoStats(Video video) {
         VideoStats videoStats = new VideoStats(video.getVid(),0,0,0,0,0,0,0,0);
-        // 使用多线程并行速度提升50%，尽管串行耗时只有122ms，并行耗时60ms
-        CompletableFuture.runAsync(() -> videoStatsMapper.insert(videoStats), taskExecutor);
+        videoStatsMapper.insert(videoStats);
+        esUtil.addVideo(video);
         CompletableFuture.runAsync(() -> redisUtil.setExObjectValue("video:" + video.getVid(), video), taskExecutor);
         CompletableFuture.runAsync(() -> redisUtil.addMember("video_status:0", video.getVid()), taskExecutor);
         CompletableFuture.runAsync(() -> redisUtil.setExObjectValue("videoStats:" + video.getVid(), videoStats), taskExecutor);
-        CompletableFuture.runAsync(() -> esUtil.addVideo(video), taskExecutor);
+
+        // 其他逻辑 （发送消息通知写库成功）
     }
 }

@@ -1,12 +1,15 @@
 package com.teriteri.backend.service.impl.search;
 
+import com.teriteri.backend.pojo.HotSearch;
 import com.teriteri.backend.service.search.SearchService;
+import com.teriteri.backend.service.utils.EventListenerService;
 import com.teriteri.backend.utils.ESUtil;
 import com.teriteri.backend.utils.RedisUtil;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.stereotype.Service;
 
+import javax.annotation.Nullable;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
@@ -57,11 +60,23 @@ public class SearchServiceImpl implements SearchService {
     }
 
     @Override
-    public List<String> getHotSearch() {
-        Set<Object> set = redisUtil.zReverange("search_word", 0L, 9L);
-        List<String> list = new ArrayList<>();
-        for (Object o : set) {
-            list.add(o.toString());
+    public List<HotSearch> getHotSearch() {
+        List<RedisUtil.ZObjScore> curr = redisUtil.zReverangeWithScores("search_word", 0, 9);
+        List<HotSearch> list = new ArrayList<>();
+        for (RedisUtil.ZObjScore o : curr) {
+            HotSearch word = new HotSearch();
+            word.setContent(o.getMember().toString());
+            word.setScore(o.getScore());
+            Double lastScore = findScoreForName(o.getMember());
+            if (lastScore == null) {
+                word.setType(1);    // 没有找到就是新词条
+                if (o.getScore() > 3) {
+                    word.setType(2);    // 短时间内搜索超过3次就是热词条
+                }
+            } else if (o.getScore() - lastScore > 3) {
+                word.setType(2);    // 短时间内搜索超过3次就是热词条
+            }
+            list.add(word);
         }
         return list;
     }
@@ -108,5 +123,15 @@ public class SearchServiceImpl implements SearchService {
         // 去除数字和空格，计算剩余字符中中文和字母的数量
         String filteredString = formattedString.replaceAll("[0-9\\s]+", "");
         return filteredString.length();
+    }
+
+    @Nullable
+    public Double findScoreForName(Object name) {
+        for (RedisUtil.ZObjScore obj : EventListenerService.hotSearchWords) {
+            if (obj.getMember().equals(name)) {
+                return obj.getScore();
+            }
+        }
+        return null;
     }
 }

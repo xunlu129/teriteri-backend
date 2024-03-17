@@ -32,7 +32,7 @@ public class ChatDetailedServiceImpl implements ChatDetailedService {
     public Map<String, Object> getDetails(Integer uid, Integer aid, Long offset) {
         String key = "chat_detailed_zset:" + uid + ":" + aid;
         Map<String, Object> map = new HashMap<>();
-        if (offset + 20 < redisUtil.zCount(key, 0, Long.MAX_VALUE)) {
+        if (offset + 20 < redisUtil.zCard(key)) {
             map.put("more", true);
         } else {
             map.put("more", false);
