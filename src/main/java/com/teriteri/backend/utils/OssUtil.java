@@ -229,7 +229,7 @@ public class OssUtil {
                     try {
                         for(String obj : deletedObjects) {
                             String deleteObj =  URLDecoder.decode(obj, "UTF-8");
-                            log.info("删除文件：" + deleteObj);
+//                            log.info("删除文件：" + deleteObj);
                         }
                     } catch (UnsupportedEncodingException e) {
                         e.printStackTrace();

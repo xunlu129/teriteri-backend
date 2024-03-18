@@ -2,8 +2,6 @@ package com.teriteri.backend.controller;
 
 import com.teriteri.backend.pojo.CustomResponse;
 import com.teriteri.backend.service.user.UserAccountService;
-import com.teriteri.backend.service.user.UserService;
-import com.teriteri.backend.service.utils.CurrentUser;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.*;
 
@@ -14,12 +12,6 @@ public class UserAccountController {
 
     @Autowired
     private UserAccountService userAccountService;
-
-    @Autowired
-    private UserService userService;
-
-    @Autowired
-    private CurrentUser currentUser;
 
     /**
      * 注册接口
@@ -101,22 +93,12 @@ public class UserAccountController {
         userAccountService.adminLogout();
     }
 
-    @PostMapping("/user/info/update")
-    public CustomResponse updateUserInfo(@RequestParam("nickname") String nickname,
-                                         @RequestParam("description") String desc,
-                                         @RequestParam("gender") Integer gender) {
-        Integer uid = currentUser.getUserId();
-        try {
-            return userService.updateUserInfo(uid, nickname, desc, gender);
-        } catch (Exception e) {
-            e.printStackTrace();
-            CustomResponse customResponse = new CustomResponse();
-            customResponse.setCode(500);
-            customResponse.setMessage("特丽丽被玩坏了");
-            return customResponse;
-        }
-    }
-
+    /**
+     * 修改当前用户密码
+     * @param pw    就密码
+     * @param npw   新密码
+     * @return  响应对象
+     */
     @PostMapping("/user/password/update")
     public CustomResponse updatePassword(@RequestParam("pw") String pw, @RequestParam("npw") String npw) {
         return userAccountService.updatePassword(pw, npw);

@@ -2,6 +2,7 @@ package com.teriteri.backend.service.user;
 
 import com.teriteri.backend.pojo.CustomResponse;
 import com.teriteri.backend.pojo.dto.UserDTO;
+import org.springframework.web.multipart.MultipartFile;
 
 import java.io.IOException;
 import java.util.List;
@@ -30,4 +31,12 @@ public interface UserService {
      * @return  响应对象
      */
     CustomResponse updateUserInfo(Integer uid, String nickname, String desc, Integer gender) throws IOException;
+
+    /**
+     * 更新用户头像
+     * @param uid
+     * @param file
+     * @return
+     */
+    CustomResponse updateUserAvatar(Integer uid, MultipartFile file) throws IOException;
 }

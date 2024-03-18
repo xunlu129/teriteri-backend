@@ -10,12 +10,15 @@ import com.teriteri.backend.pojo.dto.UserDTO;
 import com.teriteri.backend.service.user.UserService;
 import com.teriteri.backend.service.video.VideoStatsService;
 import com.teriteri.backend.utils.ESUtil;
+import com.teriteri.backend.utils.OssUtil;
 import com.teriteri.backend.utils.RedisUtil;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.multipart.MultipartFile;
 
 import java.io.IOException;
 import java.util.Collections;
@@ -40,6 +43,12 @@ public class UserServiceImpl implements UserService {
 
     @Autowired
     private ESUtil esUtil;
+
+    @Autowired
+    private OssUtil ossUtil;
+
+    @Value("${oss.bucketUrl}")
+    private String OSS_BUCKET_URL;
 
     @Autowired
     @Qualifier("taskExecutor")
@@ -208,5 +217,27 @@ public class UserServiceImpl implements UserService {
         esUtil.updateUser(new_user);
         redisUtil.delValue("user:" + uid);
         return customResponse;
+    }
+
+    @Override
+    public CustomResponse updateUserAvatar(Integer uid, MultipartFile file) throws IOException {
+        // 保存封面到OSS，返回URL
+        String avatar_url = ossUtil.uploadImage(file, "avatar");
+        // 查旧的头像地址
+        User user = userMapper.selectById(uid);
+        // 先更新数据库
+        UpdateWrapper<User> updateWrapper = new UpdateWrapper<>();
+        updateWrapper.eq("uid", uid).set("avatar", avatar_url);
+        userMapper.update(null, updateWrapper);
+        CompletableFuture.runAsync(() -> {
+            redisUtil.delValue("user:" + uid);  // 删除redis缓存
+            // 如果就头像不是初始头像就去删除OSS的源文件
+            if (user.getAvatar().startsWith(OSS_BUCKET_URL)) {
+                String filename = user.getAvatar().substring(OSS_BUCKET_URL.length());
+//                System.out.println("要删除的源文件：" + filename);
+                ossUtil.deleteFiles(filename);
+            }
+        }, taskExecutor);
+        return new CustomResponse(200, "OK", avatar_url);
     }
 }
