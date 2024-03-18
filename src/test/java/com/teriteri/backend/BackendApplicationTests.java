@@ -29,6 +29,7 @@ import java.io.File;
 import java.io.FileInputStream;
 import java.io.IOException;
 import java.io.InputStream;
+import java.math.BigDecimal;
 import java.sql.Connection;
 import java.sql.SQLException;
 import java.util.ArrayList;
@@ -82,21 +83,21 @@ class ApplicationTests {
 
     @Test
     void redis() {
-        for (int i = 1; i <= 10; i++) {
-            redisUtil.delValue("user:" + i);
+        List<RedisUtil.ZObjScore> list = redisUtil.zReverangeWithScores("search_word", 0L, -1L);
+        int count = list.size();
+        double total = 0;
+        for (RedisUtil.ZObjScore o : list) {
+            System.out.println(o.getMember() + " " + o.getScore());
+            total += o.getScore();
         }
-    }
-
-    @Test
-    void redis2() {
-        for (int i = 21; i <= 23; i++) {
-            redisUtil.delValue("video:" + i + ":play");
-            redisUtil.delValue("video:" + i + ":danmu");
-            redisUtil.delValue("video:" + i + ":good");
-            redisUtil.delValue("video:" + i + ":bad");
-            redisUtil.delValue("video:" + i + ":coin");
-            redisUtil.delValue("video:" + i + ":collect");
-            redisUtil.delValue("video:" + i + ":share");
+        BigDecimal bt = new BigDecimal(total);
+        total = bt.setScale(2, BigDecimal.ROUND_HALF_UP).doubleValue();
+        System.out.println("count " + count + " total " + total);
+        for (RedisUtil.ZObjScore o : list) {
+            BigDecimal b = new BigDecimal((o.getScore() / total) * count);
+            double score = b.setScale(2, BigDecimal.ROUND_HALF_UP).doubleValue();
+            o.setScore(score);
+            System.out.println(o.getMember() + " " + o.getScore());
         }
     }
 
@@ -186,7 +187,7 @@ class ApplicationTests {
     }
 
     @Test
-    void updateDocUser() {
+    void updateDocUser() throws IOException {
         User user = new User();
         user.setUid(13);
         user.setNickname("迷鹿");

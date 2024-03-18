@@ -1,12 +1,5 @@
 package com.teriteri.backend.service.utils;
 
-import co.elastic.clients.elasticsearch.ElasticsearchClient;
-import co.elastic.clients.elasticsearch.core.SearchResponse;
-import co.elastic.clients.elasticsearch.core.search.Hit;
-import co.elastic.clients.elasticsearch.indices.GetIndexResponse;
-import co.elastic.clients.json.jackson.JacksonJsonpMapper;
-import co.elastic.clients.transport.ElasticsearchTransport;
-import co.elastic.clients.transport.rest_client.RestClientTransport;
 import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
 import com.teriteri.backend.mapper.ChatDetailedMapper;
 import com.teriteri.backend.mapper.VideoMapper;
@@ -14,20 +7,15 @@ import com.teriteri.backend.pojo.ChatDetailed;
 import com.teriteri.backend.pojo.Video;
 import com.teriteri.backend.utils.RedisUtil;
 import lombok.extern.slf4j.Slf4j;
-import org.apache.http.HttpHost;
-import org.apache.http.auth.AuthScope;
-import org.apache.http.auth.UsernamePasswordCredentials;
-import org.apache.http.client.CredentialsProvider;
-import org.apache.http.impl.client.BasicCredentialsProvider;
-import org.elasticsearch.client.RestClient;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 
 import java.io.File;
 import java.io.IOException;
+import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.attribute.BasicFileAttributes;
@@ -54,6 +42,8 @@ public class EventListenerService {
     @Autowired
     private ChatDetailedMapper chatDetailedMapper;
 
+    public static List<RedisUtil.ZObjScore> hotSearchWords = new ArrayList<>();     // 上次更新的热搜词条
+
     /**
      * 轮询用户登录状态，将登录过期但还在在线集合的用户移出集合 (现在改用websocket实时更新用户在线状态就弃用这个定时任务了)
      */
@@ -67,6 +57,30 @@ public class EventListenerService {
 //            }
 //        }
 //    }
+
+    @Scheduled(fixedDelay = 1000 * 60 * 10)
+    public void updateHotSearch() {
+        List<RedisUtil.ZObjScore> list = redisUtil.zReverangeWithScores("search_word", 0, -1);
+        if (list == null || list.size() == 0) return;
+        int count = list.size();
+        double total = 0;
+        // 计算总分数
+        for (RedisUtil.ZObjScore o : list) {
+            total += o.getScore();
+        }
+        BigDecimal bt = new BigDecimal(total);
+        total = bt.setScale(2, RoundingMode.HALF_UP).doubleValue();
+        // 更新每个词条的分数    新分数 = (旧分数 / 总分数) * 词条数
+        for (RedisUtil.ZObjScore o : list) {
+            BigDecimal b = new BigDecimal((o.getScore() / total) * count);
+            double score = b.setScale(2, RoundingMode.HALF_UP).doubleValue();
+            o.setScore(score);
+        }
+        // 批量更新到redis上
+        redisUtil.zsetOfCollectionByScore("search_word", list);
+        // 保存新热搜
+        hotSearchWords = list.subList(0, 10);
+    }
 
     /**
      * 每天4点删除三天前未使用的分片文件
@@ -149,7 +163,7 @@ public class EventListenerService {
         }
          */
             Set<Map<String, Integer>> chatSet = new HashSet<>();
-            Map<Integer, Map<Integer, Set<RedisUtil.ZSetObject>>> setMap = new HashMap<>();
+            Map<Integer, Map<Integer, Set<RedisUtil.ZObjTime>>> setMap = new HashMap<>();
             for (ChatDetailed chatDetailed : list) {
                 Integer from = chatDetailed.getUserId();    // 发送者ID
                 Integer to = chatDetailed.getAnotherId();   // 接收者ID
@@ -162,19 +176,19 @@ public class EventListenerService {
                 if (chatDetailed.getUserDel() == 0) {
                     // 发送者没删就加到对应聊天的有序集合
                     if (setMap.get(from) == null) {
-                        Map<Integer, Set<RedisUtil.ZSetObject>> map = new HashMap<>();
-                        Set<RedisUtil.ZSetObject> set = new HashSet<>();
-                        set.add(new RedisUtil.ZSetObject(chatDetailed.getId(), chatDetailed.getTime()));
+                        Map<Integer, Set<RedisUtil.ZObjTime>> map = new HashMap<>();
+                        Set<RedisUtil.ZObjTime> set = new HashSet<>();
+                        set.add(new RedisUtil.ZObjTime(chatDetailed.getId(), chatDetailed.getTime()));
                         map.put(to, set);
                         setMap.put(from, map);
                     } else {
                         if (setMap.get(from).get(to) == null) {
-                            Set<RedisUtil.ZSetObject> set = new HashSet<>();
-                            set.add(new RedisUtil.ZSetObject(chatDetailed.getId(), chatDetailed.getTime()));
+                            Set<RedisUtil.ZObjTime> set = new HashSet<>();
+                            set.add(new RedisUtil.ZObjTime(chatDetailed.getId(), chatDetailed.getTime()));
                             setMap.get(from).put(to, set);
                         } else {
                             setMap.get(from).get(to)
-                                    .add(new RedisUtil.ZSetObject(chatDetailed.getId(), chatDetailed.getTime()));
+                                    .add(new RedisUtil.ZObjTime(chatDetailed.getId(), chatDetailed.getTime()));
                         }
                     }
                 }
@@ -187,19 +201,19 @@ public class EventListenerService {
                 if (chatDetailed.getAnotherDel() == 0) {
                     // 接收者没删就加到对应聊天的有序集合
                     if (setMap.get(to) == null) {
-                        Map<Integer, Set<RedisUtil.ZSetObject>> map = new HashMap<>();
-                        Set<RedisUtil.ZSetObject> set = new HashSet<>();
-                        set.add(new RedisUtil.ZSetObject(chatDetailed.getId(), chatDetailed.getTime()));
+                        Map<Integer, Set<RedisUtil.ZObjTime>> map = new HashMap<>();
+                        Set<RedisUtil.ZObjTime> set = new HashSet<>();
+                        set.add(new RedisUtil.ZObjTime(chatDetailed.getId(), chatDetailed.getTime()));
                         map.put(from, set);
                         setMap.put(to, map);
                     } else {
                         if (setMap.get(to).get(from) == null) {
-                            Set<RedisUtil.ZSetObject> set = new HashSet<>();
-                            set.add(new RedisUtil.ZSetObject(chatDetailed.getId(), chatDetailed.getTime()));
+                            Set<RedisUtil.ZObjTime> set = new HashSet<>();
+                            set.add(new RedisUtil.ZObjTime(chatDetailed.getId(), chatDetailed.getTime()));
                             setMap.get(to).put(from, set);
                         } else {
                             setMap.get(to).get(from)
-                                    .add(new RedisUtil.ZSetObject(chatDetailed.getId(), chatDetailed.getTime()));
+                                    .add(new RedisUtil.ZObjTime(chatDetailed.getId(), chatDetailed.getTime()));
                         }
                     }
                 }
@@ -211,7 +225,7 @@ public class EventListenerService {
                 Integer aid = map.get("another_id");
                 String key = "chat_detailed_zset:" + uid + ":" + aid;
                 redisUtil.delValue(key);
-                redisUtil.zsetOfCollection(key, setMap.get(uid).get(aid));
+                redisUtil.zsetOfCollectionByTime(key, setMap.get(uid).get(aid));
             }
         } catch (Exception e) {
             log.error("每天同步聊天记录时出错了：" + e);

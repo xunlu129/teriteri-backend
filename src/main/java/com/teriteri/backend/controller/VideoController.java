@@ -30,7 +30,12 @@ public class VideoController {
     @PostMapping("/video/change/status")
     public CustomResponse updateStatus(@RequestParam("vid") Integer vid,
                                        @RequestParam("status") Integer status) {
-        return videoService.updateVideoStatus(vid, status);
+        try {
+            return videoService.updateVideoStatus(vid, status);
+        } catch (Exception e) {
+            e.printStackTrace();
+            return new CustomResponse(500, "操作失败", null);
+        }
     }
 
     /**

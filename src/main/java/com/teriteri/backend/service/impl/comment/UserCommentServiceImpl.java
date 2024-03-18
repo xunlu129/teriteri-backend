@@ -1,16 +1,11 @@
 package com.teriteri.backend.service.impl.comment;
 
-import com.baomidou.mybatisplus.core.conditions.update.UpdateWrapper;
-import com.teriteri.backend.mapper.CommentMapper;
-import com.teriteri.backend.pojo.Comment;
-import com.teriteri.backend.pojo.CustomResponse;
 import com.teriteri.backend.service.comment.CommentService;
 import com.teriteri.backend.service.comment.UserCommentService;
 import com.teriteri.backend.utils.RedisUtil;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
-import org.springframework.core.task.TaskExecutor;
 import org.springframework.stereotype.Service;
 
 import java.util.*;

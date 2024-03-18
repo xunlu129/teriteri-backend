@@ -39,7 +39,13 @@ public class VideoUploadController {
     public CustomResponse uploadChunk(@RequestParam("chunk") MultipartFile chunk,
                                       @RequestParam("hash") String hash,
                                       @RequestParam("index") Integer index) throws IOException {
-        return videoUploadService.uploadChunk(chunk, hash, index);
+        try {
+            return videoUploadService.uploadChunk(chunk, hash, index);
+        } catch (Exception e) {
+            e.printStackTrace();
+            return new CustomResponse(500, "分片上传失败", null);
+        }
+
     }
 
     /**
@@ -64,8 +70,7 @@ public class VideoUploadController {
      * @param scid  子分区ID
      * @param tags  标签
      * @param descr 简介
-     * @return
-     * @throws IOException
+     * @return  响应对象
      */
     @PostMapping("/video/add")
     public CustomResponse addVideo(@RequestParam("cover") MultipartFile cover,
@@ -77,8 +82,13 @@ public class VideoUploadController {
                                    @RequestParam("mcid") String mcid,
                                    @RequestParam("scid") String scid,
                                    @RequestParam("tags") String tags,
-                                   @RequestParam("descr") String descr) throws IOException {
+                                   @RequestParam("descr") String descr) {
         VideoUploadInfoDTO videoUploadInfoDTO = new VideoUploadInfoDTO(null, hash, title, type, auth, duration, mcid, scid, tags, descr, null);
-        return videoUploadService.addVideo(cover, videoUploadInfoDTO);
+        try {
+            return videoUploadService.addVideo(cover, videoUploadInfoDTO);
+        } catch (Exception e) {
+            e.printStackTrace();
+            return new CustomResponse(500, "封面上传失败", null);
+        }
     }
 }

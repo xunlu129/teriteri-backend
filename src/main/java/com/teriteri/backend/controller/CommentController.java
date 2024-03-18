@@ -1,6 +1,5 @@
 package com.teriteri.backend.controller;
 
-import com.teriteri.backend.pojo.Comment;
 import com.teriteri.backend.pojo.CommentTree;
 import com.teriteri.backend.pojo.CustomResponse;
 import com.teriteri.backend.service.comment.CommentService;
@@ -32,7 +31,7 @@ public class CommentController {
                                                  @RequestParam("offset") Long offset,
                                                  @RequestParam("type") Integer type) {
         CustomResponse customResponse = new CustomResponse();
-        long count = redisUtil.zCount("comment_video:" + vid, 0L, Long.MAX_VALUE);
+        long count = redisUtil.zCard("comment_video:" + vid);
         Map<String, Object> map = new HashMap<>();
         if (offset >= count) {
             // 表示前端已经获取到全部根评论了，没必要继续
@@ -54,7 +53,7 @@ public class CommentController {
     /**
      * 展开更多回复评论
      * @param id 根评论id
-     * @return
+     * @return 完整的一棵包含全部评论的评论树
      */
     @GetMapping("/comment/reply/get-more")
     public CommentTree getMoreCommentById(@RequestParam("id") Integer id) {

@@ -2,18 +2,24 @@ package com.teriteri.backend.service.impl.video;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.teriteri.backend.mapper.VideoMapper;
+import com.teriteri.backend.mapper.VideoStatsMapper;
 import com.teriteri.backend.pojo.Video;
+import com.teriteri.backend.pojo.VideoStats;
 import com.teriteri.backend.pojo.dto.VideoUploadInfoDTO;
+import com.teriteri.backend.utils.ESUtil;
 import com.teriteri.backend.utils.OssUtil;
 import com.teriteri.backend.utils.RedisUtil;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.amqp.rabbit.annotation.RabbitHandler;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
 import java.io.IOException;
 import java.util.Date;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.Executor;
 
 
 /**
@@ -33,13 +39,20 @@ public class DirectVideoUploadConsumer {
     private VideoMapper videoMapper;
 
     @Autowired
+    private VideoStatsMapper videoStatsMapper;
+
+    @Autowired
     private RedisUtil redisUtil;
 
     @Autowired
     private OssUtil ossUtil;
 
     @Autowired
-    private VideoUploadServiceImpl videoUploadService;
+    private ESUtil esUtil;
+
+    @Autowired
+    @Qualifier("taskExecutor")
+    private Executor taskExecutor;
 
     /**
      * 监听消息队列，获取投稿信息，合并分片文件并把信息写入数据库
@@ -120,7 +133,13 @@ public class DirectVideoUploadConsumer {
                 null
         );
         videoMapper.insert(video);
-        videoUploadService.addVideoStats(video);
+
+        VideoStats videoStats = new VideoStats(video.getVid(),0,0,0,0,0,0,0,0);
+        videoStatsMapper.insert(videoStats);
+        esUtil.addVideo(video);
+        CompletableFuture.runAsync(() -> redisUtil.setExObjectValue("video:" + video.getVid(), video), taskExecutor);
+        CompletableFuture.runAsync(() -> redisUtil.addMember("video_status:0", video.getVid()), taskExecutor);
+        CompletableFuture.runAsync(() -> redisUtil.setExObjectValue("videoStats:" + video.getVid(), videoStats), taskExecutor);
 
         // 其他逻辑 （发送消息通知写库成功）
     }

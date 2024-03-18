@@ -1,24 +1,31 @@
 package com.teriteri.backend.service.impl.user;
 
 import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
+import com.baomidou.mybatisplus.core.conditions.update.UpdateWrapper;
 import com.teriteri.backend.mapper.UserMapper;
+import com.teriteri.backend.pojo.CustomResponse;
 import com.teriteri.backend.pojo.User;
 import com.teriteri.backend.pojo.VideoStats;
 import com.teriteri.backend.pojo.dto.UserDTO;
 import com.teriteri.backend.service.user.UserService;
 import com.teriteri.backend.service.video.VideoStatsService;
+import com.teriteri.backend.utils.ESUtil;
+import com.teriteri.backend.utils.OssUtil;
 import com.teriteri.backend.utils.RedisUtil;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.multipart.MultipartFile;
 
+import java.io.IOException;
 import java.util.Collections;
 import java.util.List;
 import java.util.Objects;
 import java.util.Set;
-import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.Executor;
+import java.util.concurrent.*;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
@@ -33,6 +40,15 @@ public class UserServiceImpl implements UserService {
 
     @Autowired
     private RedisUtil redisUtil;
+
+    @Autowired
+    private ESUtil esUtil;
+
+    @Autowired
+    private OssUtil ossUtil;
+
+    @Value("${oss.bucketUrl}")
+    private String OSS_BUCKET_URL;
 
     @Autowired
     @Qualifier("taskExecutor")
@@ -68,6 +84,7 @@ public class UserServiceImpl implements UserService {
             userDTO.setGender(2);
             userDTO.setDescription("-");
             userDTO.setExp(0);
+            userDTO.setCoin((double) 0);
             userDTO.setVip(0);
             userDTO.setAuth(0);
             userDTO.setVideoCount(0);
@@ -83,6 +100,7 @@ public class UserServiceImpl implements UserService {
         userDTO.setGender(user.getGender());
         userDTO.setDescription(user.getDescription());
         userDTO.setExp(user.getExp());
+        userDTO.setCoin(user.getCoin());
         userDTO.setVip(user.getVip());
         userDTO.setAuth(user.getAuth());
         userDTO.setAuthMsg(user.getAuthMsg());
@@ -96,21 +114,10 @@ public class UserServiceImpl implements UserService {
             return userDTO;
         }
 
-        // 异步执行每个视频数据统计的查询任务
-        List<CompletableFuture<VideoStats>> futureList = set.stream()
-                .map(vid ->
-                        CompletableFuture.supplyAsync(
-                                () -> videoStatsService.getVideoStatsById((Integer) vid),
-                                taskExecutor))
+        // 并发执行每个视频数据统计的查询任务
+        List<VideoStats> list = set.stream().parallel()
+                .map(vid -> videoStatsService.getVideoStatsById((Integer) vid))
                 .collect(Collectors.toList());
-
-        // 等待所有异步任务执行完成
-        CompletableFuture<Void> allOf = CompletableFuture.allOf(futureList.toArray(new CompletableFuture[0]));
-
-        // 获取数据统计列表
-        List<VideoStats> list = allOf.thenApplyAsync(v -> futureList.stream()
-                .map(CompletableFuture::join)
-                .collect(Collectors.toList())).join();
 
         int video = list.size(), love = 0, play = 0;
         for (VideoStats videoStats : list) {
@@ -145,6 +152,7 @@ public class UserServiceImpl implements UserService {
                             user.getGender(),
                             user.getDescription(),
                             user.getExp(),
+                            user.getCoin(),
                             user.getVip(),
                             user.getState(),
                             user.getAuth(),
@@ -156,21 +164,10 @@ public class UserServiceImpl implements UserService {
                         return Stream.of(userDTO);
                     }
 
-                    // 异步执行每个视频数据统计的查询任务
-                    List<CompletableFuture<VideoStats>> futureList = set.stream()
-                            .map(vid ->
-                                    CompletableFuture.supplyAsync(
-                                            () -> videoStatsService.getVideoStatsById((Integer) vid),
-                                            taskExecutor))
+                    // 并发执行每个视频数据统计的查询任务
+                    List<VideoStats> videoStatsList = set.stream().parallel()
+                            .map(vid -> videoStatsService.getVideoStatsById((Integer) vid))
                             .collect(Collectors.toList());
-
-                    // 等待所有异步任务执行完成
-                    CompletableFuture<Void> allOf = CompletableFuture.allOf(futureList.toArray(new CompletableFuture[0]));
-
-                    // 获取数据统计列表
-                    List<VideoStats> videoStatsList = allOf.thenApplyAsync(v -> futureList.stream()
-                            .map(CompletableFuture::join)
-                            .collect(Collectors.toList())).join();
 
                     int video = videoStatsList.size(), love = 0, play = 0;
                     for (VideoStats videoStats : videoStatsList) {
@@ -183,5 +180,64 @@ public class UserServiceImpl implements UserService {
                     return Stream.of(userDTO);
                 }
         ).collect(Collectors.toList());
+    }
+
+    @Override
+    @Transactional
+    public CustomResponse updateUserInfo(Integer uid, String nickname, String desc, Integer gender) throws IOException {
+        CustomResponse customResponse = new CustomResponse();
+        if (nickname == null || nickname.trim().length() == 0) {
+            customResponse.setCode(500);
+            customResponse.setMessage("昵称不能为空");
+            return customResponse;
+        }
+        if (nickname.length() > 24 || desc.length() > 100) {
+            customResponse.setCode(500);
+            customResponse.setMessage("输入字符过长");
+            return customResponse;
+        }
+        // 查重
+        QueryWrapper<User> queryWrapper = new QueryWrapper<>();
+        queryWrapper.eq("nickname", nickname).ne("uid", uid);
+        User user = userMapper.selectOne(queryWrapper);
+        if (user != null) {
+            customResponse.setCode(500);
+            customResponse.setMessage("该昵称已被其他用户占用");
+            return customResponse;
+        }
+        UpdateWrapper<User> updateWrapper = new UpdateWrapper<>();
+        updateWrapper.eq("uid", uid)
+                .set("nickname", nickname)
+                .set("description", desc)
+                .set("gender", gender);
+        userMapper.update(null, updateWrapper);
+        User new_user = new User();
+        new_user.setUid(uid);
+        new_user.setNickname(nickname);
+        esUtil.updateUser(new_user);
+        redisUtil.delValue("user:" + uid);
+        return customResponse;
+    }
+
+    @Override
+    public CustomResponse updateUserAvatar(Integer uid, MultipartFile file) throws IOException {
+        // 保存封面到OSS，返回URL
+        String avatar_url = ossUtil.uploadImage(file, "avatar");
+        // 查旧的头像地址
+        User user = userMapper.selectById(uid);
+        // 先更新数据库
+        UpdateWrapper<User> updateWrapper = new UpdateWrapper<>();
+        updateWrapper.eq("uid", uid).set("avatar", avatar_url);
+        userMapper.update(null, updateWrapper);
+        CompletableFuture.runAsync(() -> {
+            redisUtil.delValue("user:" + uid);  // 删除redis缓存
+            // 如果就头像不是初始头像就去删除OSS的源文件
+            if (user.getAvatar().startsWith(OSS_BUCKET_URL)) {
+                String filename = user.getAvatar().substring(OSS_BUCKET_URL.length());
+//                System.out.println("要删除的源文件：" + filename);
+                ossUtil.deleteFiles(filename);
+            }
+        }, taskExecutor);
+        return new CustomResponse(200, "OK", avatar_url);
     }
 }

@@ -3,16 +3,18 @@ package com.teriteri.backend.service.impl.category;
 import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
 import com.teriteri.backend.mapper.CategoryMapper;
 import com.teriteri.backend.pojo.CustomResponse;
-import com.teriteri.backend.pojo.User;
 import com.teriteri.backend.pojo.dto.CategoryDTO;
 import com.teriteri.backend.pojo.Category;
 import com.teriteri.backend.service.category.CategoryService;
 import com.teriteri.backend.utils.RedisUtil;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.stereotype.Service;
 
 import java.util.*;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.Executor;
 
 @Slf4j
 @Service
@@ -23,6 +25,10 @@ public class CategoryServiceImpl implements CategoryService {
 
     @Autowired
     private RedisUtil redisUtil;
+
+    @Autowired
+    @Qualifier("taskExecutor")
+    private Executor taskExecutor;
 
     /**
      * 获取全部分区数据
@@ -124,7 +130,11 @@ public class CategoryServiceImpl implements CategoryService {
             if (category == null) {
                 return new Category();    // 如果不存在则返回空
             }
-            redisUtil.setExObjectValue("category:" + mcId + ":" + scId, category);  // 默认存活1小时
+
+            Category finalCategory = category;
+            CompletableFuture.runAsync(() -> {
+                redisUtil.setExObjectValue("category:" + mcId + ":" + scId, finalCategory);  // 默认存活1小时
+            }, taskExecutor);
         }
         return category;
     }

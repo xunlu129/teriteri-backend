@@ -2,6 +2,7 @@ package com.teriteri.backend.service.video;
 
 import com.teriteri.backend.pojo.CustomResponse;
 
+import java.io.IOException;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -36,5 +37,5 @@ public interface VideoService {
      * @param status 要修改的状态，1通过 2不通过 3删除
      * @return 无data返回，仅返回响应信息
      */
-    CustomResponse updateVideoStatus(Integer vid, Integer status);
+    CustomResponse updateVideoStatus(Integer vid, Integer status) throws IOException;
 }

@@ -15,7 +15,6 @@ import java.io.UnsupportedEncodingException;
 import java.net.URLDecoder;
 import java.util.Collections;
 import java.util.List;
-import java.util.Map;
 
 @RestController
 public class SearchController {
