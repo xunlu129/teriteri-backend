@@ -4,6 +4,7 @@ import com.teriteri.backend.pojo.CustomResponse;
 import com.teriteri.backend.service.user.UserService;
 import com.teriteri.backend.service.utils.CurrentUser;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
@@ -54,5 +55,12 @@ public class UserController {
             e.printStackTrace();
             return new CustomResponse(500, "头像更新失败", null);
         }
+    }
+
+    @GetMapping("/user/info/get-one")
+    public CustomResponse getOneUserInfo(@RequestParam("uid") Integer uid) {
+        CustomResponse customResponse = new CustomResponse();
+        customResponse.setData(userService.getUserById(uid));
+        return customResponse;
     }
 }

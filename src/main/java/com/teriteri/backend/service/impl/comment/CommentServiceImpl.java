@@ -188,10 +188,12 @@ public class CommentServiceImpl implements CommentService {
     @Transactional
     public CustomResponse deleteComment(Integer id, Integer uid, boolean isAdmin) {
         CustomResponse customResponse = new CustomResponse();
-        Comment comment = commentMapper.selectById(id);
+        QueryWrapper<Comment> queryWrapper = new QueryWrapper<>();
+        queryWrapper.eq("id", id).ne("is_delete", 1);
+        Comment comment = commentMapper.selectOne(queryWrapper);
         if (comment == null) {
             customResponse.setCode(404);
-            customResponse.setMessage("该条评论不存在!");
+            customResponse.setMessage("评论不存在");
             return customResponse;
         }
 

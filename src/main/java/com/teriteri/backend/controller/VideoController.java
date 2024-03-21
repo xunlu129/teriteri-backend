@@ -118,4 +118,9 @@ public class VideoController {
         customResponse.setData(map);
         return customResponse;
     }
+
+    @GetMapping("/video/user-works-count")
+    public CustomResponse getUserWorksCount(@RequestParam("uid") Integer uid) {
+        return new CustomResponse(200, "OK", redisUtil.zCard("user_video_upload:" + uid));
+    }
 }

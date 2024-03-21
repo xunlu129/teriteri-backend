@@ -58,7 +58,10 @@ public class EventListenerService {
 //        }
 //    }
 
-    @Scheduled(fixedDelay = 1000 * 60 * 10)
+    /**
+     * 每一小时更新一次热搜词条热度
+     */
+    @Scheduled(fixedDelay = 1000 * 60 * 60)
     public void updateHotSearch() {
         List<RedisUtil.ZObjScore> list = redisUtil.zReverangeWithScores("search_word", 0, -1);
         if (list == null || list.size() == 0) return;

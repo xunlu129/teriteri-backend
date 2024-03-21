@@ -309,6 +309,7 @@ public class VideoServiceImpl implements VideoService {
                     esUtil.deleteVideo(vid);
                     redisUtil.delMember("video_status:" + lastStatus, vid);     // 从旧状态移除
                     redisUtil.delValue("video:" + vid);     // 删除旧的视频信息
+                    redisUtil.delValue("danmu_idset:" + vid);   // 删除该视频的弹幕
                     redisUtil.zsetDelMember("user_video_upload:" + video.getUid(), video.getVid());
                     // 搞个异步线程去删除OSS的源文件
                     CompletableFuture.runAsync(() -> ossUtil.deleteFiles(videoPrefix), taskExecutor);
