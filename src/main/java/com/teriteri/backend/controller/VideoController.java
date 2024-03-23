@@ -2,6 +2,7 @@ package com.teriteri.backend.controller;
 
 import com.teriteri.backend.pojo.CustomResponse;
 import com.teriteri.backend.pojo.Video;
+import com.teriteri.backend.service.utils.CurrentUser;
 import com.teriteri.backend.service.video.VideoService;
 import com.teriteri.backend.utils.RedisUtil;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -20,6 +21,9 @@ public class VideoController {
 
     @Autowired
     private RedisUtil redisUtil;
+
+    @Autowired
+    private CurrentUser currentUser;
 
     /**
      * 更新视频状态，包括过审、不通过、删除，其中审核相关需要管理员权限，删除可以是管理员或者投稿用户
@@ -100,6 +104,11 @@ public class VideoController {
         return customResponse;
     }
 
+    /**
+     * 获取单条视频的信息
+     * @param vid   视频vid
+     * @return  视频信息
+     */
     @GetMapping("/video/getone")
     public CustomResponse getOneVideo(@RequestParam("vid") Integer vid) {
         CustomResponse customResponse = new CustomResponse();
@@ -122,5 +131,98 @@ public class VideoController {
     @GetMapping("/video/user-works-count")
     public CustomResponse getUserWorksCount(@RequestParam("uid") Integer uid) {
         return new CustomResponse(200, "OK", redisUtil.zCard("user_video_upload:" + uid));
+    }
+
+    /**
+     * 获取用户视频投稿
+     * @param uid   用户id
+     * @param rule  排序方式 1 投稿日期 2 播放量 3 点赞数
+     * @param page  分页 从1开始
+     * @param quantity  每页查询数量
+     * @return  视频信息列表
+     */
+    @GetMapping("/video/user-works")
+    public CustomResponse getUserWorks(@RequestParam("uid") Integer uid,
+                                       @RequestParam("rule") Integer rule,
+                                       @RequestParam("page") Integer page,
+                                       @RequestParam("quantity") Integer quantity) {
+        CustomResponse customResponse = new CustomResponse();
+        Map<String, Object> map = new HashMap<>();
+        Set<Object> set = redisUtil.zReverange("user_video_upload:" + uid, 0, -1);
+        if (set == null || set.isEmpty()) {
+            map.put("count", 0);
+            map.put("list", Collections.emptyList());
+            customResponse.setData(map);
+            return customResponse;
+        }
+        List<Integer> list = new ArrayList<>();
+        set.forEach(vid -> {
+            list.add((Integer) vid);
+        });
+        map.put("count", set.size());
+        switch (rule) {
+            case 1:
+                map.put("list", videoService.getVideosWithDataByIdsOrderByDesc(list, "upload_date", page, quantity));
+                break;
+            case 2:
+                map.put("list", videoService.getVideosWithDataByIdsOrderByDesc(list, "play", page, quantity));
+                break;
+            case 3:
+                map.put("list", videoService.getVideosWithDataByIdsOrderByDesc(list, "good", page, quantity));
+                break;
+            default:
+                map.put("list", videoService.getVideosWithDataByIdsOrderByDesc(list, "upload_date", page, quantity));
+        }
+        customResponse.setData(map);
+        return customResponse;
+    }
+
+    /**
+     * 获取用户最近点赞视频列表
+     * @param uid   用户uid
+     * @param offset    偏移量，即当前已查询到多少条视频
+     * @param quantity  查询数量
+     * @return  视频信息列表
+     */
+    @GetMapping("/video/user-love")
+    public CustomResponse getUserLoveMovies(@RequestParam("uid") Integer uid,
+                                            @RequestParam("offset") Integer offset,
+                                            @RequestParam("quantity") Integer quantity) {
+        CustomResponse customResponse = new CustomResponse();
+        Set<Object> set = redisUtil.zReverange("love_video:" + uid, (long) offset, (long) offset + quantity - 1);
+        if (set == null || set.isEmpty()) {
+            customResponse.setData(Collections.emptyList());
+            return customResponse;
+        }
+        List<Integer> list = new ArrayList<>();
+        set.forEach(vid -> {
+            list.add((Integer) vid);
+        });
+        customResponse.setData(videoService.getVideosWithDataByIdsOrderByDesc(list, null, 1, list.size()));
+        return customResponse;
+    }
+
+    /**
+     * 获取当前登录用户最近播放视频列表
+     * @param offset    偏移量，即当前已查询到多少条视频
+     * @param quantity  查询数量
+     * @return  视频信息列表
+     */
+    @GetMapping("/video/user-play")
+    public CustomResponse getUserPlayMovies(@RequestParam("offset") Integer offset,
+                                            @RequestParam("quantity") Integer quantity) {
+        Integer uid = currentUser.getUserId();
+        CustomResponse customResponse = new CustomResponse();
+        Set<Object> set = redisUtil.zReverange("user_video_history:" + uid, (long) offset, (long) offset + quantity - 1);
+        if (set == null || set.isEmpty()) {
+            customResponse.setData(Collections.emptyList());
+            return customResponse;
+        }
+        List<Integer> list = new ArrayList<>();
+        set.forEach(vid -> {
+            list.add((Integer) vid);
+        });
+        customResponse.setData(videoService.getVideosWithDataByIdsOrderByDesc(list, null, 1, list.size()));
+        return customResponse;
     }
 }

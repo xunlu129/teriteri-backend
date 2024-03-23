@@ -534,6 +534,14 @@ public class RedisUtil {
         redisTemplate.opsForValue().getOperations().delete(key);
     }
 
+    /**
+     * 删除多个key
+     * @param keys
+     */
+    public void delValues(Collection<String> keys) {
+        redisTemplate.opsForValue().getOperations().delete(keys);
+    }
+
 
     // String 相关操作 end ----------------------------------------------------------------------------------------------
 

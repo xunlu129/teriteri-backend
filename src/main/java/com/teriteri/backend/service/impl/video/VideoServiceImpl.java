@@ -3,8 +3,10 @@ package com.teriteri.backend.service.impl.video;
 import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
 import com.baomidou.mybatisplus.core.conditions.update.UpdateWrapper;
 import com.teriteri.backend.mapper.VideoMapper;
+import com.teriteri.backend.mapper.VideoStatsMapper;
 import com.teriteri.backend.pojo.CustomResponse;
 import com.teriteri.backend.pojo.Video;
+import com.teriteri.backend.pojo.VideoStats;
 import com.teriteri.backend.service.category.CategoryService;
 import com.teriteri.backend.service.user.UserService;
 import com.teriteri.backend.service.utils.CurrentUser;
@@ -14,11 +16,15 @@ import com.teriteri.backend.utils.ESUtil;
 import com.teriteri.backend.utils.OssUtil;
 import com.teriteri.backend.utils.RedisUtil;
 import lombok.extern.slf4j.Slf4j;
+import org.apache.ibatis.session.ExecutorType;
+import org.apache.ibatis.session.SqlSession;
+import org.apache.ibatis.session.SqlSessionFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import javax.annotation.Nullable;
 import java.io.IOException;
 import java.util.*;
 import java.util.concurrent.CompletableFuture;
@@ -32,6 +38,9 @@ import java.util.stream.Stream;
 public class VideoServiceImpl implements VideoService {
     @Autowired
     private VideoMapper videoMapper;
+
+    @Autowired
+    private VideoStatsMapper videoStatsMapper;
 
     @Autowired
     private UserService userService;
@@ -53,6 +62,9 @@ public class VideoServiceImpl implements VideoService {
 
     @Autowired
     private ESUtil esUtil;
+
+    @Autowired
+    private SqlSessionFactory sqlSessionFactory;
 
     @Autowired
     @Qualifier("taskExecutor")
@@ -123,6 +135,123 @@ public class VideoServiceImpl implements VideoService {
 //        end = System.currentTimeMillis();
 //        System.out.println("封装耗时：" + (end - start));
         return mapList;
+    }
+
+    @Override
+    public List<Map<String, Object>> getVideosWithDataByIdsOrderByDesc(List<Integer> idList, @Nullable String column, Integer page, Integer quantity) {
+        // 使用事务批量操作 减少连接sql的开销
+        try (SqlSession sqlSession = sqlSessionFactory.openSession(ExecutorType.BATCH)) {
+            List<Map<String, Object>> result;
+            if (column == null) {
+                // 如果没有指定排序列，就按idList排序
+                QueryWrapper<Video> queryWrapper = new QueryWrapper<>();
+                queryWrapper.in("vid", idList);
+                List<Video> videos = videoMapper.selectList(queryWrapper);
+                if (videos.isEmpty()) {
+                    sqlSession.commit();
+                    return Collections.emptyList();
+                }
+                result = idList.stream().parallel().flatMap(vid -> {
+                    Map<String, Object> map = new HashMap<>();
+                    // 找到videos中为vid的视频
+                    Video video = videos.stream()
+                            .filter(v -> Objects.equals(v.getVid(), vid))
+                            .findFirst()
+                            .orElse(null);
+                    if (video == null) return Stream.empty(); // 跳过该项
+                    if (video.getStatus() == 3) {
+                        // 视频已删除
+                        Video video1 = new Video();
+                        video1.setVid(video.getVid());
+                        video1.setUid(video.getUid());
+                        video1.setStatus(video.getStatus());
+                        video1.setDeleteDate(video.getDeleteDate());
+                        map.put("video", video1);
+                        return Stream.of(map);
+                    }
+                    map.put("video", video);
+                    CompletableFuture<Void> userFuture = CompletableFuture.runAsync(() -> {
+                        map.put("user", userService.getUserById(video.getUid()));
+                        map.put("stats", videoStatsService.getVideoStatsById(video.getVid()));
+                    }, taskExecutor);
+                    CompletableFuture<Void> categoryFuture = CompletableFuture.runAsync(() -> {
+                        map.put("category", categoryService.getCategoryById(video.getMcId(), video.getScId()));
+                    }, taskExecutor);
+                    userFuture.join();
+                    categoryFuture.join();
+                    return Stream.of(map);
+                }).collect(Collectors.toList());
+            } else if (Objects.equals(column, "upload_date")) {
+                // 如果按投稿日期排序，就先查video表
+                QueryWrapper<Video> queryWrapper = new QueryWrapper<>();
+                queryWrapper.in("vid", idList).orderByDesc(column).last("LIMIT " + quantity + " OFFSET " + (page - 1) * quantity);
+                List<Video> list = videoMapper.selectList(queryWrapper);
+                if (list.isEmpty()) {
+                    sqlSession.commit();
+                    return Collections.emptyList();
+                }
+                result = list.stream().parallel().map(video -> {
+                    Map<String, Object> map = new HashMap<>();
+                    if (video.getStatus() == 3) {
+                        // 视频已删除
+                        Video video1 = new Video();
+                        video1.setVid(video.getVid());
+                        video1.setUid(video.getUid());
+                        video1.setStatus(video.getStatus());
+                        video1.setDeleteDate(video.getDeleteDate());
+                        map.put("video", video1);
+                        return map;
+                    }
+                    map.put("video", video);
+                    CompletableFuture<Void> userFuture = CompletableFuture.runAsync(() -> {
+                        map.put("user", userService.getUserById(video.getUid()));
+                        map.put("stats", videoStatsService.getVideoStatsById(video.getVid()));
+                    }, taskExecutor);
+                    CompletableFuture<Void> categoryFuture = CompletableFuture.runAsync(() -> {
+                        map.put("category", categoryService.getCategoryById(video.getMcId(), video.getScId()));
+                    }, taskExecutor);
+                    userFuture.join();
+                    categoryFuture.join();
+                    return map;
+                }).collect(Collectors.toList());
+            } else {
+                // 否则按视频数据排序，就先查数据
+                QueryWrapper<VideoStats> queryWrapper = new QueryWrapper<>();
+                queryWrapper.in("vid", idList).orderByDesc(column).last("LIMIT " + quantity + " OFFSET " + (page - 1) * quantity);
+                List<VideoStats> list = videoStatsMapper.selectList(queryWrapper);
+                if (list.isEmpty()) {
+                    sqlSession.commit();
+                    return Collections.emptyList();
+                }
+                result = list.stream().parallel().map(videoStats -> {
+                    Map<String, Object> map = new HashMap<>();
+                    Video video = videoMapper.selectById(videoStats.getVid());
+                    if (video.getStatus() == 3) {
+                        // 视频已删除
+                        Video video1 = new Video();
+                        video1.setVid(video.getVid());
+                        video1.setUid(video.getUid());
+                        video1.setStatus(video.getStatus());
+                        video1.setDeleteDate(video.getDeleteDate());
+                        map.put("video", video1);
+                        return map;
+                    }
+                    map.put("video", video);
+                    map.put("stats", videoStats);
+                    CompletableFuture<Void> userFuture = CompletableFuture.runAsync(() -> {
+                        map.put("user", userService.getUserById(video.getUid()));
+                    }, taskExecutor);
+                    CompletableFuture<Void> categoryFuture = CompletableFuture.runAsync(() -> {
+                        map.put("category", categoryService.getCategoryById(video.getMcId(), video.getScId()));
+                    }, taskExecutor);
+                    userFuture.join();
+                    categoryFuture.join();
+                    return map;
+                }).collect(Collectors.toList());
+            }
+            sqlSession.commit();
+            return result;
+        }
     }
 
     /**
@@ -314,6 +443,14 @@ public class VideoServiceImpl implements VideoService {
                     // 搞个异步线程去删除OSS的源文件
                     CompletableFuture.runAsync(() -> ossUtil.deleteFiles(videoPrefix), taskExecutor);
                     CompletableFuture.runAsync(() -> ossUtil.deleteFiles(coverPrefix), taskExecutor);
+                    // 批量删除该视频下的全部评论缓存
+                    CompletableFuture.runAsync(() -> {
+                        Set<Object> set = redisUtil.zReverange("comment_video:" + vid, 0, -1);
+                        List<String> list = new ArrayList<>();
+                        set.forEach(id -> list.add("comment_reply:" + id));
+                        list.add("comment_video:" + vid);
+                        redisUtil.delValues(list);
+                    }, taskExecutor);
                     return customResponse;
                 } else {
                     // 更新失败，处理错误情况

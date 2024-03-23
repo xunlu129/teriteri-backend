@@ -2,6 +2,7 @@ package com.teriteri.backend.service.video;
 
 import com.teriteri.backend.pojo.CustomResponse;
 
+import javax.annotation.Nullable;
 import java.io.IOException;
 import java.util.List;
 import java.util.Map;
@@ -16,6 +17,17 @@ public interface VideoService {
      * @return  包含用户信息、分区信息、视频信息的map列表
      */
     List<Map<String, Object>> getVideosWithDataByIds(Set<Object> set, Integer index, Integer quantity);
+
+    /**
+     * 按指定列（倒序）排序或者按给定id顺序排序，分页获取视频信息，
+     * 允许查询已删除的视频，已删除的视频信息会经过筛选处理
+     * @param idList   要查询的视频id列表，column为null时按该列表顺序排序
+     * @param column    要排序的列   可选：null/"upload_date"/"play"/"good"/...
+     * @param page  分页页码 从1开始
+     * @param quantity  每一页查询的数量
+     * @return  包含用户信息、分区信息、视频信息的map顺序列表
+     */
+    List<Map<String, Object>> getVideosWithDataByIdsOrderByDesc(List<Integer> idList, @Nullable String column, Integer page, Integer quantity);
 
     /**
      * 根据vid查询单个视频信息，包含用户信息和分区信息
