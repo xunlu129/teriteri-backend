@@ -8,6 +8,7 @@ import com.teriteri.backend.mapper.VideoStatsMapper;
 import com.teriteri.backend.pojo.Danmu;
 import com.teriteri.backend.pojo.User;
 import com.teriteri.backend.pojo.VideoStats;
+import com.teriteri.backend.service.video.VideoStatsService;
 import com.teriteri.backend.utils.JwtUtil;
 import com.teriteri.backend.utils.RedisUtil;
 import lombok.extern.slf4j.Slf4j;
@@ -23,6 +24,7 @@ import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.stream.Collectors;
 
 @Slf4j
 @Component
@@ -33,14 +35,14 @@ public class DanmuWebSocketServer {
     private static JwtUtil jwtUtil;
     private static RedisUtil redisUtil;
     private static DanmuMapper danmuMapper;
-    private static VideoStatsMapper videoStatsMapper;
+    private static VideoStatsService videoStatsService;
 
     @Autowired
-    public void setDependencies(JwtUtil jwtUtil, RedisUtil redisUtil, DanmuMapper danmuMapper, VideoStatsMapper videoStatsMapper) {
+    public void setDependencies(JwtUtil jwtUtil, RedisUtil redisUtil, DanmuMapper danmuMapper, VideoStatsService videoStatsService) {
         DanmuWebSocketServer.jwtUtil = jwtUtil;
         DanmuWebSocketServer.redisUtil = redisUtil;
         DanmuWebSocketServer.danmuMapper = danmuMapper;
-        DanmuWebSocketServer.videoStatsMapper = videoStatsMapper;
+        DanmuWebSocketServer.videoStatsService = videoStatsService;
     }
 
     // 对每个视频存储该视频下的session集合
@@ -111,11 +113,8 @@ public class DanmuWebSocketServer {
                     new Date()
             );
             danmuMapper.insert(danmu);
-            UpdateWrapper<VideoStats> updateWrapper = new UpdateWrapper<>();
-            updateWrapper.eq("vid", Integer.parseInt(vid)).setSql("danmu = danmu + 1");
-            videoStatsMapper.update(new VideoStats(), updateWrapper);
+            videoStatsService.updateStats(Integer.parseInt(vid), "danmu", true, 1);
             redisUtil.addMember("danmu_idset:" + vid, danmu.getId());   // 加入对应视频的ID集合，以便查询
-            redisUtil.delValue("videoStats:" + vid);    // 删除redis上的状态缓存
 
             // 广播弹幕
             String dmJson = JSON.toJSONString(danmu);
@@ -157,12 +156,13 @@ public class DanmuWebSocketServer {
      */
     public void sendMessage(String vid, String text) {
         Set<Session> set = videoConnectionMap.get(vid);
-        for (Session session : set) {
+        // 使用并行流往各客户端发送数据
+        set.parallelStream().forEach(session -> {
             try {
                 session.getBasicRemote().sendText(text);
             } catch (Exception e) {
                 e.printStackTrace();
             }
-        }
+        });
     }
 }

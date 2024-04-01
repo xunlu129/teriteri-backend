@@ -78,7 +78,7 @@ public class UserServiceImpl implements UserService {
         userDTO.setUid(user.getUid());
         userDTO.setState(user.getState());
         if (user.getState() == 2) {
-            userDTO.setNickname("用户已注销");
+            userDTO.setNickname("账号已注销");
             userDTO.setAvatar_url("https://cube.elemecdn.com/9/c2/f0ee8a3c7c9638a54940382568c9dpng.png");
             userDTO.setBg_url("https://tinypic.host/images/2023/11/15/69PB2Q5W9D2U7L.png");
             userDTO.setGender(2);
@@ -194,6 +194,11 @@ public class UserServiceImpl implements UserService {
         if (nickname.length() > 24 || desc.length() > 100) {
             customResponse.setCode(500);
             customResponse.setMessage("输入字符过长");
+            return customResponse;
+        }
+        if (Objects.equals(nickname, "账号已注销")) {
+            customResponse.setCode(500);
+            customResponse.setMessage("昵称非法");
             return customResponse;
         }
         // 查重

@@ -106,7 +106,12 @@ public class SecurityConfig {
                                 "/search/**",
                                 "/comment/get",
                                 "/comment/reply/get-more",
-                                "/comment/get-up-like").permitAll()
+                                "/comment/get-up-like",
+                                "/user/info/get-one",
+                                "/video/user-works-count",
+                                "/video/user-works",
+                                "/video/user-love",
+                                "/video/user-collect").permitAll()
                         // 允许HTTP OPTIONS请求
                         .antMatchers(HttpMethod.OPTIONS).permitAll()
                         // 其他地址的访问均需验证权限

@@ -318,7 +318,7 @@ public class UserAccountServiceImpl implements UserAccountService {
         // 检查账号状态，1 表示封禁中，不允许登录，2表示账号注销了
         if (userDTO.getState() == 2) {
             customResponse.setCode(404);
-            customResponse.setMessage("用户已注销");
+            customResponse.setMessage("账号已注销");
             return customResponse;
         }
         if (userDTO.getState() == 1) {
@@ -359,7 +359,7 @@ public class UserAccountServiceImpl implements UserAccountService {
         // 检查账号状态，1 表示封禁中，不允许登录，2表示已注销
         if (user.getState() == 2) {
             customResponse.setCode(404);
-            customResponse.setMessage("用户已注销");
+            customResponse.setMessage("账号已注销");
             return customResponse;
         }
         if (user.getState() == 1) {

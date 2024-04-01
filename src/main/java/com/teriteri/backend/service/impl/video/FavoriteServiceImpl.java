@@ -4,16 +4,22 @@ import com.alibaba.fastjson2.JSONArray;
 import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
 import com.baomidou.mybatisplus.core.conditions.update.UpdateWrapper;
 import com.teriteri.backend.mapper.FavoriteMapper;
+import com.teriteri.backend.mapper.VideoMapper;
 import com.teriteri.backend.pojo.Favorite;
+import com.teriteri.backend.pojo.Video;
 import com.teriteri.backend.service.video.FavoriteService;
 import com.teriteri.backend.utils.RedisUtil;
+import org.apache.ibatis.session.ExecutorType;
+import org.apache.ibatis.session.SqlSession;
+import org.apache.ibatis.session.SqlSessionFactory;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.stereotype.Service;
 
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Objects;
+import java.io.Serializable;
+import java.util.*;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.Executor;
 
 @Service
 public class FavoriteServiceImpl implements FavoriteService {
@@ -21,7 +27,17 @@ public class FavoriteServiceImpl implements FavoriteService {
     private FavoriteMapper favoriteMapper;
 
     @Autowired
+    private VideoMapper videoMapper;
+
+    @Autowired
     private RedisUtil redisUtil;
+
+    @Autowired
+    private SqlSessionFactory sqlSessionFactory;
+
+    @Autowired
+    @Qualifier("taskExecutor")
+    private Executor taskExecutor;
 
     @Override
     public List<Favorite> getFavorites(Integer uid, boolean isOwner) {
@@ -44,10 +60,25 @@ public class FavoriteServiceImpl implements FavoriteService {
         queryWrapper.eq("uid", uid).ne("is_delete", 1).orderByDesc("fid");
         list = favoriteMapper.selectList(queryWrapper);
         if (list != null && !list.isEmpty()) {
+            // 使用事务批量操作 减少连接sql的开销
+            try (SqlSession sqlSession = sqlSessionFactory.openSession(ExecutorType.BATCH)) {
+                // 设置收藏夹封面
+                list.stream().parallel().forEach(favorite -> {
+                    if (favorite.getCover() == null) {
+                        Set<Object> set = redisUtil.zReverange("favorite_video:" + favorite.getFid(), 0, 0);    // 找到最近一个收藏的视频
+                        if (set != null && set.size() > 0) {
+                            Integer vid = (Integer) set.iterator().next();
+                            Video video = videoMapper.selectById(vid);
+                            favorite.setCover(video.getCoverUrl());
+                        }
+                    }
+                });
+                sqlSession.commit();
+            }
             List<Favorite> finalList = list;
             CompletableFuture.runAsync(() -> {
                 redisUtil.setExObjectValue(key, finalList);
-            });
+            }, taskExecutor);
             if (!isOwner) {
                 List<Favorite> list1 = new ArrayList<>();
                 for (Favorite favorite : list) {
@@ -59,7 +90,7 @@ public class FavoriteServiceImpl implements FavoriteService {
             }
             return list;
         }
-        return null;
+        return Collections.emptyList();
     }
 
     @Override
