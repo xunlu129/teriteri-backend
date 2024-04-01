@@ -406,6 +406,7 @@ public class VideoServiceImpl implements VideoService {
                     esUtil.updateVideo(video);  // 更新ES视频文档
                     redisUtil.delMember("video_status:" + lastStatus, vid);     // 从旧状态移除
                     redisUtil.addMember("video_status:2", vid);     // 加入新状态
+                    redisUtil.zsetDelMember("user_video_upload:" + video.getUid(), video.getVid());
                     redisUtil.delValue("video:" + vid);     // 删除旧的视频信息
                     return customResponse;
                 } else {

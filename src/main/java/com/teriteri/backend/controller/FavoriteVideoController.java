@@ -87,6 +87,34 @@ public class FavoriteVideoController {
     }
 
     /**
+     * 取消单个视频在单个收藏夹的收藏
+     * @param vid   视频vid
+     * @param fid   收藏夹id
+     * @return  响应对象
+     */
+    @PostMapping("/video/cancel-collect")
+    public CustomResponse cancelCollect(@RequestParam("vid") Integer vid, @RequestParam("fid") Integer fid) {
+        CustomResponse customResponse = new CustomResponse();
+        Integer uid = currentUser.getUserId();
+        Set<Integer> fids = findFidsOfUserFavorites(uid);
+        Set<Integer> removeSet = new HashSet<>();
+        removeSet.add(fid);
+        if (!fids.containsAll(removeSet)) {
+            customResponse.setCode(403);
+            customResponse.setMessage("无权操作该收藏夹");
+            return customResponse;
+        }
+        Set<Integer> collectedFids = favoriteVideoService.findFidsOfCollected(vid, fids);   // 原本该用户已收藏该视频的收藏夹ID集合
+        favoriteVideoService.removeFromFav(uid, vid, removeSet);
+        // 判断是否是最后一个取消收藏的收藏夹，是就要标记视频为未收藏
+        boolean isCancel = collectedFids.size() > 0 && collectedFids.size() == removeSet.size() && collectedFids.containsAll(removeSet);
+        if (isCancel) {
+            userVideoService.collectOrCancel(uid, vid, false);
+        }
+        return customResponse;
+    }
+
+    /**
      * 提取某用户的全部收藏夹信息的FID整合成集合
      * @param uid   用户ID
      * @return  fid集合
