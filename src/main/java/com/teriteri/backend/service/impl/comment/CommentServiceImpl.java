@@ -189,7 +189,7 @@ public class CommentServiceImpl implements CommentService {
     public CustomResponse deleteComment(Integer id, Integer uid, boolean isAdmin) {
         CustomResponse customResponse = new CustomResponse();
         QueryWrapper<Comment> queryWrapper = new QueryWrapper<>();
-        queryWrapper.eq("id", id).ne("is_delete", 1);
+        queryWrapper.eq("id", id).ne("is_deleted", 1);
         Comment comment = commentMapper.selectOne(queryWrapper);
         if (comment == null) {
             customResponse.setCode(404);
