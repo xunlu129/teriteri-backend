@@ -88,16 +88,16 @@ spring:
         numTestsPerEvictionRun: -1
     # 连接超时时间（毫秒）
     timeout: 5000
-  rabbitmq:
-    # RabbitMQ服务器地址
-    host: ***.***.***.***
-    # RabbitMQ服务器连接端口
-    port: 5672
-    # 访问用户名和密码
-    username: ***
-    password: ***
-    # 虚拟主机
-    virtual-host: /
+#  rabbitmq:
+#    # RabbitMQ服务器地址
+#    host: ***.***.***.***
+#    # RabbitMQ服务器连接端口
+#    port: 5672
+#    # 访问用户名和密码
+#    username: ***
+#    password: ***
+#    # 虚拟主机
+#    virtual-host: /
 
 directory:
   # 投稿视频存储目录
