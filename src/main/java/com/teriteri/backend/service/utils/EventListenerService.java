@@ -82,7 +82,11 @@ public class EventListenerService {
         // 批量更新到redis上
         redisUtil.zsetOfCollectionByScore("search_word", list);
         // 保存新热搜
-        hotSearchWords = list.subList(0, 10);
+        if (list.size() < 10) {
+            hotSearchWords = list.subList(0, list.size());
+        } else {
+            hotSearchWords = list.subList(0, 10);
+        }
     }
 
     /**

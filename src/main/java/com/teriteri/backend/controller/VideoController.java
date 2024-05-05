@@ -63,9 +63,12 @@ public class VideoController {
         CustomResponse customResponse = new CustomResponse();
         int count = 11;
         Set<Object> idSet = redisUtil.srandmember("video_status:1", count);
-        List<Map<String, Object>> videoList = videoService.getVideosWithDataByIds(idSet, 1, count);
-        // 随机打乱列表顺序
-        Collections.shuffle(videoList);
+        List<Map<String, Object>> videoList = new ArrayList<>();
+        if (idSet != null && !idSet.isEmpty()) {
+            videoList = videoService.getVideosWithDataByIds(idSet, 1, count);
+            // 随机打乱列表顺序
+            Collections.shuffle(videoList);
+        }
         customResponse.setData(videoList);
         return customResponse;
     }
@@ -97,17 +100,20 @@ public class VideoController {
         Set<Object> idSet = new HashSet<>();    // 存放将要返回的id集合
         Random random = new Random();
         // 随机获取10个vid
-        for (int i = 0; i < 10 && set.size() > 0; i++) {
+        for (int i = 0; i < 10 && !set.isEmpty(); i++) {
             Object[] arr = set.toArray();
             int randomIndex = random.nextInt(set.size());
             idSet.add(arr[randomIndex]);
             set.remove(arr[randomIndex]);   // 查过的元素移除
         }
-        List<Map<String, Object>> videoList = videoService.getVideosWithDataByIds(idSet, 1, 10);
-        Collections.shuffle(videoList);     // 随机打乱列表顺序
+        List<Map<String, Object>> videoList = new ArrayList<>();
+        if (!idSet.isEmpty()) {
+            videoList = videoService.getVideosWithDataByIds(idSet, 1, 10);
+            Collections.shuffle(videoList);     // 随机打乱列表顺序
+        }
         map.put("videos", videoList);
         map.put("vids", idSet);
-        if (set.size() > 0) {
+        if (!set.isEmpty()) {
             map.put("more", true);
         } else {
             map.put("more", false);
