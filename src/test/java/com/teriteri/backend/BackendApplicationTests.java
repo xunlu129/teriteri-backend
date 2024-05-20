@@ -36,7 +36,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
 
-@SpringBootTest
+@SpringBootTest(properties = {"spring.profiles.active=test"})
 class ApplicationTests {
     @Autowired
     DataSource dataSource;
