@@ -7,6 +7,8 @@ import co.elastic.clients.elasticsearch.core.bulk.BulkOperation;
 import co.elastic.clients.elasticsearch.core.search.Hit;
 import co.elastic.clients.elasticsearch.indices.CreateIndexRequest;
 import co.elastic.clients.elasticsearch.indices.CreateIndexResponse;
+import co.elastic.clients.elasticsearch.indices.DeleteIndexRequest;
+import co.elastic.clients.elasticsearch.indices.DeleteIndexResponse;
 import com.alibaba.druid.pool.DruidDataSource;
 import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
 import com.teriteri.backend.mapper.UserMapper;
@@ -139,25 +141,46 @@ class ApplicationTests {
 
 
     // 测试 ElasticSearch
-    // 创建索引
+
+    // 创建服务所需ES索引的脚本，首次使用本服务前请执行此程序
     @Test
-    void createIndex() throws IOException {
-        InputStream input1 = this.getClass().getResourceAsStream("/static/esindex/video.json");
-        InputStream input2 = this.getClass().getResourceAsStream("/static/esindex/user.json");
-        InputStream input3 = this.getClass().getResourceAsStream("/static/esindex/search_word.json");
-        CreateIndexRequest req1 = CreateIndexRequest.of(b -> b.index("video").withJson(input1));
-        CreateIndexRequest req2 = CreateIndexRequest.of(b -> b.index("user").withJson(input2));
-        CreateIndexRequest req3 = CreateIndexRequest.of(b -> b.index("search_word").withJson(input3));
-        CreateIndexResponse resp1 = client.indices().create(req1);
-        CreateIndexResponse resp2 = client.indices().create(req2);
-        CreateIndexResponse resp3 = client.indices().create(req3);
-        System.out.println(resp1);
-        System.out.println(resp2);
-        System.out.println(resp3);
+    void createIndex() {
+        String[] indices = {"video", "user", "search_word"};
+        String[] paths = {
+                "/static/esindex/video.json",
+                "/static/esindex/user.json",
+                "/static/esindex/search_word.json"
+        };
+
+        for (int i = 0; i < indices.length; i++) {
+            try (InputStream input = this.getClass().getResourceAsStream(paths[i])) {
+                int finalI = i;
+                CreateIndexRequest request = CreateIndexRequest.of(b -> b.index(indices[finalI]).withJson(input));
+                CreateIndexResponse response = client.indices().create(request);
+                System.out.println(response);
+            } catch (Exception e) {
+                System.out.println(e.getMessage());
+            }
+        }
     }
 
+    // 删除服务所需ES索引，请谨慎使用
+    @Test
+    void deleteIndex() {
+        String[] indices = {"video", "user", "search_word"};
 
-    // 批量添加文档
+        for (String index : indices) {
+            try {
+                DeleteIndexRequest request = DeleteIndexRequest.of(b -> b.index(index));
+                DeleteIndexResponse response = client.indices().delete(request);
+                System.out.println(response);
+            } catch (Exception e) {
+                System.out.println(e.getMessage());
+            }
+        }
+    }
+
+    // 批量添加文档，恢复数据用，同步mysql和redis的数据到ES
     @Test
     void bulkAddDocVideo() throws IOException {
         QueryWrapper<Video> queryWrapper = new QueryWrapper<>();
@@ -183,6 +206,19 @@ class ApplicationTests {
             bulkOperationList.add(BulkOperation.of(o -> o.index(i -> i.document(esUser).id(esUser.getUid().toString()))));
         }
         BulkResponse bulkResponse = client.bulk(b -> b.index("user").operations(bulkOperationList));
+        System.out.println(bulkResponse);
+    }
+
+    @Test
+    void bulkAddDocSearchWord() throws IOException {
+        Set<Object> words = redisUtil.zReverange("search_word", 0, -1);
+        List<BulkOperation> bulkOperationList = new ArrayList<>();
+        for (Object word : words) {
+            String w = (String) word;
+            ESSearchWord esSearchWord = new ESSearchWord(w);
+            bulkOperationList.add(BulkOperation.of(o -> o.index(i -> i.document(esSearchWord))));
+        }
+        BulkResponse bulkResponse = client.bulk(b -> b.index("search_word").operations(bulkOperationList));
         System.out.println(bulkResponse);
     }
 
