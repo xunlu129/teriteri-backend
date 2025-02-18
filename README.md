@@ -1,4 +1,22 @@
+<div align=center style="margin-top: 20px">
+<img src="https://tinypic.host/images/2024/12/06/logo.png" width="200" height="200" />
+</div>
+<div align=center style="margin-bottom: 20px">
+<img src="https://tinypic.host/images/2024/12/06/teriteri-pink.png" height="50" />
+</div>
+<div align=center>
+<img src="https://img.shields.io/badge/java-1.8-blue"/>
+<img src="https://img.shields.io/badge/springboot-2.7-lightBlue"/>
+<img src="https://img.shields.io/badge/elasticsearch-7.17.16-red"/>
+<img src="https://img.shields.io/badge/vue-3.2-blue"/>
+<img src="https://img.shields.io/badge/node-16.16.0-green"/>
+</div>
+
+
+
 # 一个用Springboot + Vue开发的仿B站项目
+
+> **前言**：本项目是作者两年前的技术水平所写，代码中不免有一些瑕疵和纰漏，亦或是“屎山”，或者不够优雅。本人现已入职大半年，没有精力继续开发剩余功能了，有能力的小伙伴可以自行优化升级。总的来说，本项目对于一些开发小白来说还是非常不错的，能快速入门，毕竟像我这种注释这么详细的完整开源项目还是比较少的。最近作者打算在闲余时间用go+vite做teriteri2.0的全面重构以及功能拓展（只是有这个打算），不过距离实现也是遥遥无期哈，感兴趣的小伙伴可以关注一下。     ---- 2025/2/18 寻鹿
 
 
 
@@ -24,9 +42,9 @@
 - **管理员端代码：**
   - [xunlu129/teriteri-admin: 一个基于 vue3 搭建的视频网站平台管理员端 (github.com)](https://github.com/xunlu129/teriteri-admin)
 
-### ==**代码都拿了，顺手帮忙给我视频点个赞，给代码点个star呗，拜托了，这对我真的很重要![0EF500CA](README.assets/0EF500CA.png)**==
+### **代码都拿了，顺手帮忙给我视频点个赞，给代码点个star呗，拜托了，这对我真的很重要![0EF500CA](README.assets/0EF500CA.png)**
 
-### ==**声明：本项目只用作学习参考，无任何商业用途，对于项目中的部分图片来源，我已注明出处，若他人使用本项目造成的侵权问题，本人概不负责**==
+### **声明：本项目只用作学习参考，无任何商业用途，对于项目中的部分图片来源，我已注明出处，若他人使用本项目造成的侵权问题，本人概不负责**
 
 
 
@@ -100,6 +118,7 @@
 1. 轮播图是在 `carousel.json` 写死的，可以改成你自己的，目前轮播的是我OSS上的资源，我只开了 localhost:8787 的白名单，所以如果服务端口改成其他会出现图片加载失败的情况。
 2. 一些图标库可以在阿里巴巴矢量图标库上找，因为现在用的是我创建的图标库，指不定哪天我改几下，旧的图标就用不了了。
 3. 注意代理端口号和后端匹配，在 `vue.config.js` 和 `.env.development` 中修改。
+4. 打包部署的话用的是 `.env.production`。
 
 剩下没什么好注意的，启动就完事了：
 
@@ -111,7 +130,7 @@ npm install
 npm run serve
 ```
 
-### ==**最后注意一下版权问题**==
+### **最后注意一下版权问题**
 
 
 

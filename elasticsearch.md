@@ -62,8 +62,8 @@ xpack.security.transport.ssl.enabled: true
 修改`config/jvm.options`配置文件，调整JVM堆内存大小
 
 ```bash
--Xms1g
--Xmx1g
+-Xms512m
+-Xmx512m
 ```
 
 > - **注意：**
